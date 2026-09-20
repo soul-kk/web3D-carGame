@@ -1,0 +1,31 @@
+- main [ref=e16]:
+  - generic [ref=e18]:
+    - heading [level=1] [ref=e19]:
+      - img "必应" [ref=e20] [cursor=pointer]
+    - navigation [ref=e26]:
+      - menubar [ref=e27]:
+        - menuitem [ref=e28] [cursor=pointer]:
+          - link "Copilot" [ref=e29]:
+            - /url: /chat?FORM=hpcodx&intent=bing
+        - menuitem [ref=e32] [cursor=pointer]:
+          - link "图片" [ref=e33]:
+            - /url: /images?FORM=Z9LH
+        - menuitem [ref=e34] [cursor=pointer]:
+          - link "视频" [ref=e35]:
+            - /url: /videos?FORM=Z9LH1
+        - menuitem [ref=e36] [cursor=pointer]:
+          - link "地图" [ref=e37]:
+            - /url: /maps?FORM=Z9LH2
+        - menuitem [ref=e38] [cursor=pointer]:
+          - link "资讯" [ref=e39]:
+            - /url: /news/search?q=%e3%83%88%e3%83%83%e3%83%97%e8%a8%98%e4%ba%8b&nvaug=%5bNewsVertical+Category%3d%22rt_MaxClass%22%5d&FORM=Z9LH3
+        - menuitem [ref=e40] [cursor=pointer]:
+          - text: . . .
+          - button "更多" [ref=e41]
+  - search [ref=e43]:
+    - generic [aria-hidden] [ref=e44] [cursor=pointer]
+    - combobox "在此处输入你的搜索 — 输入时会显示搜索建议" [active] [ref=e49]
+    - button "语音搜索" [ref=e52]
+    - button "使用图像搜索" [ref=e57] [cursor=pointer]
+    - link "打开 Copilot" [ref=e58] [cursor=pointer]:
+      - /url: /chat?FORM=hpcodx&intent=bing

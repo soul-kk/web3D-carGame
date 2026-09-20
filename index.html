@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>卡通赛车 · Three.js</title>
+</head>
+<body>
+  <!-- 3D 画布挂载点 -->
+  <div id="app"></div>
+
+  <!-- ============ 游戏内 HUD ============ -->
+  <div id="hud" class="hidden">
+    <div class="panel" id="panel-left">
+      <div class="row"><span class="label">圈数</span><span id="hud-lap">1 / 3</span></div>
+      <div class="row"><span class="label">本圈</span><span id="hud-current">0.00</span></div>
+      <div class="row"><span class="label">最佳</span><span id="hud-best">--.--</span></div>
+      <div class="row"><span class="label">总计</span><span id="hud-total">0.00</span></div>
+    </div>
+
+    <div class="panel" id="panel-right">
+      <canvas id="minimap" width="150" height="150"></canvas>
+      <div class="row"><span class="label">金币</span><span id="hud-coins">0</span></div>
+      <div class="row"><span class="label">音效 M</span><span id="hud-sound">开</span></div>
+    </div>
+
+    <div id="speedo"><span id="hud-speed">0</span><span class="unit">km/h</span></div>
+
+    <div id="messages"></div>
+    <div id="wrong-way" class="hidden">↩ 逆 行 中</div>
+  </div>
+
+  <!-- ============ 移动端虚拟按键 ============ -->
+  <div id="touch" class="hidden">
+    <div class="tbtn" id="touch-left">◀</div>
+    <div class="tbtn" id="touch-right">▶</div>
+    <div class="tbtn" id="touch-gas">▲</div>
+    <div class="tbtn" id="touch-brake">▼</div>
+  </div>
+
+  <!-- ============ 开始 / 结束界面 ============ -->
+  <div id="screen">
+    <div class="card" id="card">
+      <h1>卡 通 赛 车</h1>
+      <p>Three.js 3D 赛车 Demo</p>
+      <div class="keys">
+        <kbd>W ↑ 加速</kbd><kbd>S ↓ 刹车/倒车</kbd><kbd>A ← 左转</kbd><kbd>D → 右转</kbd>
+      </div>
+      <p>收集金币 🪙 · 躲开路障 🚧 · 冲过加速带 ⏩ · 跑完 <b id="laps-hint">3</b> 圈</p>
+      <p class="dim">按 <kbd>R</kbd> 回到赛道 · <kbd>M</kbd> 开关音效</p>
+      <div class="spacer"></div>
+      <div class="btn" id="btn-start">开 始 比 赛</div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

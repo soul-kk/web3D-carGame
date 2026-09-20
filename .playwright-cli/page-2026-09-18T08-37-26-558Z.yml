@@ -1,0 +1,264 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e2]:
+    - button "跳至内容" [ref=f1e3] [cursor=pointer]
+    - button "辅助功能反馈" [ref=f1e6] [cursor=pointer]
+    - generic [ref=f1e9]:
+      - link [ref=f1e10] [cursor=pointer]:
+        - /url: /?FORM=Z9FD1
+        - heading "返回到必应搜索" [level=1] [ref=f1e11]
+      - search [ref=f1e12]:
+        - button "搜索" [ref=f1e15] [cursor=pointer]
+        - searchbox "在此处输入你的搜索 — 输入时会显示搜索建议" [ref=f1e16]: pi agent 官网
+        - generic [ref=f1e17] [cursor=pointer]
+        - button "使用图像搜索" [ref=f1e22] [cursor=pointer]
+    - complementary "帐户奖励和偏好设置" [ref=f1e24]:
+      - button "Microsoft Rewards" [ref=f1e25] [cursor=pointer]
+      - link "登录" [ref=f1e26] [cursor=pointer]:
+        - /url: javascript:void(0)
+    - navigation "主菜单" [ref=f1e28]:
+      - list [ref=f1e29]:
+        - listitem [ref=f1e30]:
+          - link "全部" [ref=f1e31] [cursor=pointer]:
+            - /url: /?scope=web&FORM=HDRSC1
+        - listitem [ref=f1e32]:
+          - link "Web" [ref=f1e33] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=b61ab2b7d5fd6fdaf95d7446a8951a661ce0c14a6a34db1d03981a3a4b261905JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpK2FnZW50KyVlNSVhZSU5OCVlNyViZCU5MSZ3ZWJzY3A9MSZGT1JNPUhEUldTQw&ntb=1
+        - listitem [ref=f1e34]:
+          - link "搜索" [ref=f1e35] [cursor=pointer]:
+            - /url: /copilotsearch?q=pi+agent+%e5%ae%98%e7%bd%91&FORM=CSSCOP
+        - listitem [ref=f1e38]:
+          - link "图片" [ref=f1e39] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=3a90975b1b62be66f0ed7588becf6ae1f10a1739c11401823764bdcfa69c6b24JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L2ltYWdlcy9zZWFyY2g_cT1waSthZ2VudCslZTUlYWUlOTglZTclYmQlOTEmRk9STT1IRFJTQzM&ntb=1
+        - listitem [ref=f1e40]:
+          - link "视频" [ref=f1e41] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=b7107823c0e1a44703aec271f8a3698b88d6555c36001ca1507eae3a945f20dbJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3ZpZGVvcy9zZWFyY2g_cT1waSthZ2VudCslZTUlYWUlOTglZTclYmQlOTEmRk9STT1IRFJTQzQ&ntb=1
+        - listitem [ref=f1e42]:
+          - link "地图" [ref=f1e43] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=dea12affc8deb20a8e711af202d731d5abd74ddbfe6a504dd6a295d7ae781e92JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L21hcHM_cT1waSthZ2VudCslZTUlYWUlOTglZTclYmQlOTEmRk9STT1IRFJTQzY&ntb=1
+        - listitem [ref=f1e44]:
+          - link "Copilot" [ref=f1e45] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=3c17c3e837641ac98334def7d00959864f03b9ff656a8e2c725fc3b4cf35b208JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L2NoYXQ_cHJvbXB0PXBpK2FnZW50KyVlNSVhZSU5OCVlNyViZCU5MSZzZW5kcXVlcnk9MSZGT1JNPVNDQ09EWA&ntb=1
+        - listitem [ref=f1e46]:
+          - button [ref=f1e47] [cursor=pointer]
+  - generic [ref=f1e51]:
+    - main "搜索结果" [ref=f1e52]:
+      - generic [ref=f1e54]:
+        - generic [aria-hidden] [ref=f1e55]:
+          - generic [ref=f1e56] [cursor=pointer]
+          - generic [ref=f1e59] [cursor=pointer]
+          - generic [ref=f1e62] [cursor=pointer]
+        - text: 约 42,500 个结果
+      - list [ref=f1e65]:
+        - listitem [ref=f1e66]:
+          - link "pi.dev" [ref=f1e68] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=70f355453c1f9a7c9a95032bc10193c0ee791c020e8df412eb85138a856ee785JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS5kZXYv&ntb=1
+            - generic [ref=f1e73]:
+              - generic [ref=f1e74]: pi.dev
+              - generic [ref=f1e76]:
+                - generic [ref=f1e77]: https://pi.dev
+                - generic [ref=f1e78]: 翻译此结果
+          - heading [level=2] [ref=f1e79]:
+            - link "Pi Coding Agent" [ref=f1e80] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=70f355453c1f9a7c9a95032bc10193c0ee791c020e8df412eb85138a856ee785JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS5kZXYv&ntb=1
+          - paragraph [ref=f1e82]: Pi is a minimal agent harness. Adapt Pi to your workflows, not the other way around. Customize Pi with extensions, skills, prompt …
+        - listitem [ref=f1e83]:
+          - link "pi-desktop.app" [ref=f1e85] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=8c0b6d949ea742a5555bf965b4cbf2b6d38e08396617cfe6108a03489cfdd40cJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS1kZXNrdG9wLmFwcC8&ntb=1
+            - generic [ref=f1e90]:
+              - generic [ref=f1e91]: pi-desktop.app
+              - generic [ref=f1e92]: https://pi-desktop.app
+          - heading [level=2] [ref=f1e95]:
+            - link "Pi Agent Desktop — 把 Pi Coding Agent 变成真正的桌面工作台" [ref=f1e96] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=8c0b6d949ea742a5555bf965b4cbf2b6d38e08396617cfe6108a03489cfdd40cJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS1kZXNrdG9wLmFwcC8&ntb=1
+          - paragraph [ref=f1e98]: Pi Agent Desktop 是 Pi Coding Agent 的本地优先桌面工作台，集成会话、项目文件、共享浏览器、Herdr Agent 舰队、受管进程、模 …
+        - listitem [ref=f1e99]:
+          - link "Github" [ref=f1e101] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=734b7b32bc6d55b2fc795a11273f4866b2c8b1f1c0b2275787932c68fe3b59f5JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9naXRodWIuY29tL2VhcmVuZGlsLXdvcmtzL3Bp&ntb=1
+            - generic [ref=f1e106]:
+              - generic [ref=f1e107]: Github
+              - generic [ref=f1e109]:
+                - generic [ref=f1e110]: https://github.com › earendil-works › pi
+                - generic [ref=f1e111]: 翻译此结果
+          - heading [level=2] [ref=f1e112]:
+            - 'link "GitHub - earendil-works/pi: AI agent toolkit: unified LLM API ..." [ref=f1e113] [cursor=pointer]':
+              - /url: https://www.bing.com/ck/a?!&&p=734b7b32bc6d55b2fc795a11273f4866b2c8b1f1c0b2275787932c68fe3b59f5JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9naXRodWIuY29tL2VhcmVuZGlsLXdvcmtzL3Bp&ntb=1
+          - paragraph [ref=f1e115]: 2026年3月1日 · If you use Pi or other coding agents for open source work, please share your sessions. Public OSS session data …
+        - listitem [ref=f1e116]:
+          - link "pi-agent.org" [ref=f1e118] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=22126c595f84b8029603851128d3c7ab7a2fbe401ba871769f686f9aec8a3472JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS1hZ2VudC5vcmcvZG9jcw&ntb=1
+            - img "全球 Web 图标" [ref=f1e121]
+            - generic [ref=f1e122]:
+              - generic [ref=f1e123]: pi-agent.org
+              - generic [ref=f1e124]: https://pi-agent.org › docs
+          - heading [level=2] [ref=f1e127]:
+            - link "Pi 官方 Docs 中文同步 - Pi Agent 中文指南 | Pi Agent 中文 ..." [ref=f1e128] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=22126c595f84b8029603851128d3c7ab7a2fbe401ba871769f686f9aec8a3472JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS1hZ2VudC5vcmcvZG9jcw&ntb=1
+          - paragraph [ref=f1e130]: 基于 Pi 官方 coding-agent docs 的中文整理与机器初译，包含快速开始、Provider、扩展、SDK、RPC 等文档。
+        - listitem [ref=f1e131]:
+          - link "pi.dev" [ref=f1e133] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=2fb4077b53bbf6dd3103570305e42c59bb8e1ce50810d350e7bd53d6b0672c71JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS5kZXYvZG9jcy9sYXRlc3Q&ntb=1
+            - generic [ref=f1e138]:
+              - generic [ref=f1e139]: pi.dev
+              - generic [ref=f1e141]:
+                - generic [ref=f1e142]: https://pi.dev › docs › latest
+                - generic [ref=f1e143]: 翻译此结果
+          - heading [level=2] [ref=f1e144]:
+            - link "Pi Documentation · Documentation · Pi" [ref=f1e145] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=2fb4077b53bbf6dd3103570305e42c59bb8e1ce50810d350e7bd53d6b0672c71JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS5kZXYvZG9jcy9sYXRlc3Q&ntb=1
+          - paragraph [ref=f1e147]: Pi is a minimal terminal coding harness. It is designed to stay small at the core while being extended through TypeScript extensions, …
+        - listitem [ref=f1e148]:
+          - link "pi-agent.org" [ref=f1e150] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=c86cb2fe591fc5bab5de926ec101ad0ad0cffd0ba3d738b233928703dbfdf75bJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS1hZ2VudC5vcmcv&ntb=1
+            - img "全球 Web 图标" [ref=f1e153]
+            - generic [ref=f1e154]:
+              - generic [ref=f1e155]: pi-agent.org
+              - generic [ref=f1e156]: https://pi-agent.org
+          - heading [level=2] [ref=f1e159]:
+            - link "Pi Agent 中文指南 - AI 编程工作流与 Pi 教程" [ref=f1e160] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=c86cb2fe591fc5bab5de926ec101ad0ad0cffd0ba3d738b233928703dbfdf75bJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS1hZ2VudC5vcmcv&ntb=1
+          - paragraph [ref=f1e162]: 2026年6月19日 · 面向 Cursor、Claude Code、Codex CLI 用户的 Pi 中文社区指南，帮助你理解 AI 编程如何从单次提问升级为可复用 …
+        - listitem [ref=f1e163]:
+          - link "348580.xyz" [ref=f1e165] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=2ab395935062a9c1bebb0e087728bbfcbf594e2dcdde7ef489e0a435ba840fdaJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS4zNDg1ODAueHl6Lw&ntb=1
+            - generic [ref=f1e170]:
+              - generic [ref=f1e171]: 348580.xyz
+              - generic [ref=f1e172]: https://pi.348580.xyz
+          - heading [level=2] [ref=f1e175]:
+            - link "Pi Agent — 本地优先的 AI Agent 桌面应用" [ref=f1e176] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=2ab395935062a9c1bebb0e087728bbfcbf594e2dcdde7ef489e0a435ba840fdaJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS4zNDg1ODAueHl6Lw&ntb=1
+          - paragraph [ref=f1e178]: Pi Agent 是面向 macOS、Windows 和 Linux 的本地 AI Agent 桌面应用。 浏览与续接会话、实时查看思考与工具调用、管理模型与 …
+        - listitem [ref=f1e179]:
+          - link "菜鸟教程" [ref=f1e181] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=830ad508750d3a020de6cf6569ed1d6ed70454921b82b4ef1b5a5ec1bd68ff2fJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly93d3cucnVub29iLmNvbS9haS1hZ2VudC9waS1jb2RpbmctYWdlbnQuaHRtbA&ntb=1
+            - generic [ref=f1e186]:
+              - generic [ref=f1e187]: 菜鸟教程
+              - generic [ref=f1e188]: https://www.runoob.com › ai-agent › pi-coding-agent.html
+          - heading [level=2] [ref=f1e191]:
+            - link "Pi Coding Agent 入门教程 | 菜鸟教程" [ref=f1e192] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=830ad508750d3a020de6cf6569ed1d6ed70454921b82b4ef1b5a5ec1bd68ff2fJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly93d3cucnVub29iLmNvbS9haS1hZ2VudC9waS1jb2RpbmctYWdlbnQuaHRtbA&ntb=1
+          - paragraph [ref=f1e194]: Pi 是一个运行在终端里的 AI 编码 Agent，类似于 Claude Code、OpenAI Codex CLI 这类工具。 Pi 的官方理念是： "There are many …
+        - listitem [ref=f1e195]:
+          - generic [ref=f1e196]:
+            - link "浏览此图像" [ref=f1e199] [cursor=pointer]:
+              - /url: /images/search?view=detailV2&ccid=JLGcChkq&id=2A491C88DC791895BBE9F6A13EEE46B8E52655B2&thid=OIP.JLGcChkqQMSafMinSDwHuQAAAA&mediaurl=https://pi-doc.com/rspress-icon.png&q=pi+agent+%e5%ae%98%e7%bd%91&ck=CDDA3A322CDEABF543EAD9A1B694AF86&idpp=rc&expw=256&exph=243&form=rc2idp
+            - generic [ref=f1e201]:
+              - link "pi-doc.com" [ref=f1e203] [cursor=pointer]:
+                - /url: https://www.bing.com/ck/a?!&&p=2ed8d94d7da01cc2d67e63df7c04c228216597239d97bf5f05c68d9ee3f01d22JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS1kb2MuY29tL2RvY3MvbGF0ZXN0L3F1aWNrc3RhcnQuaHRtbA&ntb=1
+                - generic [ref=f1e208]:
+                  - generic [ref=f1e209]: pi-doc.com
+                  - generic [ref=f1e210]: https://pi-doc.com › docs › latest › quickstart
+              - heading [level=2] [ref=f1e213]:
+                - link "快速开始 - Pi 中文文档" [ref=f1e214] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=2ed8d94d7da01cc2d67e63df7c04c228216597239d97bf5f05c68d9ee3f01d22JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly9waS1kb2MuY29tL2RvY3MvbGF0ZXN0L3F1aWNrc3RhcnQuaHRtbA&ntb=1
+              - paragraph [ref=f1e215]: 本页面是 Pi 官方文档 的中文翻译。 仅供学习参考。 本页将带你从安装到完成第一个有用的 Pi 会话。 - …
+        - listitem [ref=f1e217]:
+          - link "知乎专栏" [ref=f1e219] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=e56a1c70abdfedc86601424588efcea5f258b1ff2fa17963cde8841b0a86986bJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC8yMDQzMDQ2MjM3OTM5NzQ5NTE4&ntb=1
+            - generic [ref=f1e224]:
+              - generic [ref=f1e225]: 知乎专栏
+              - generic [ref=f1e226]: https://zhuanlan.zhihu.com
+          - heading [level=2] [ref=f1e229]:
+            - link "我用了三个月 Pi，终于可以告诉你它凭什么比 Claude Code ..." [ref=f1e230] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=e56a1c70abdfedc86601424588efcea5f258b1ff2fa17963cde8841b0a86986bJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC8yMDQzMDQ2MjM3OTM5NzQ5NTE4&ntb=1
+          - paragraph [ref=f1e232]: 2026年5月27日 · “世界上有很多不同类型的 Agent，但 Pi Agent 就是你自己的 Agent。 ” 什么意思？ 在 Pi 里，如果你想要一个自定义 …
+        - listitem [ref=f1e233]:
+          - generic [ref=f1e235]:
+            - heading "其他用户还问了以下问题" [level=2] [ref=f1e236]
+            - list [ref=f1e240]:
+              - listitem [ref=f1e241]:
+                - heading [level=3] [ref=f1e242]:
+                  - button "Is Pi a minimal agent harness?" [ref=f1e243] [cursor=pointer]
+              - listitem [ref=f1e245]:
+                - heading [level=3] [ref=f1e246]:
+                  - button "What is Pi & how do I use it?" [ref=f1e247] [cursor=pointer]
+              - listitem [ref=f1e249]:
+                - heading [level=3] [ref=f1e250]:
+                  - button "What permissions does Pi have?" [ref=f1e251] [cursor=pointer]
+        - listitem [ref=f1e254]:
+          - generic [ref=f1e255]:
+            - heading [level=2] [ref=f1e256]:
+              - text: 深入了解
+              - strong [ref=f1e257]: pi agent 官网
+            - list [ref=f1e258]:
+              - listitem [ref=f1e259]:
+                - link [ref=f1e260] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=7c55afca154379ce6e5dbc1f7362521bc32015d080a5aa6a9b411ac519209b65JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpK2NvZGluZyslZTUlYWUlOTglZTclYmQlOTEmRk9STT1RU1JFMQ&ntb=1
+                  - generic [ref=f1e262]:
+                    - text: pi
+                    - strong [ref=f1e263]: coding
+                    - text: 官网
+              - listitem [ref=f1e264]:
+                - link [ref=f1e265] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=1fd89bf258f3f7d0db206f6beaf471c55e9a60db850229690d2d4aab6c45ba33JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpKyVlNyViYyU5NiVlNyVhOCU4YiVlNSViNyVhNSVlNSU4NSViNyVlNSVhZSU5OCVlNyViZCU5MSZGT1JNPVFTUkUy&ntb=1
+                  - generic [ref=f1e267]:
+                    - text: pi
+                    - strong [ref=f1e268]: 编程工具
+                    - text: 官网
+              - listitem [ref=f1e269]:
+                - link [ref=f1e270] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=c1f4ac60a95355dab3786e79929e6a66f90ed6957e7438bcd30898622cf068ffJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpK2FnZW50K2Rlc2t0b3AmRk9STT1RU1JFMw&ntb=1
+                  - generic [ref=f1e272]:
+                    - text: pi agent
+                    - strong [ref=f1e273]: desktop
+              - listitem [ref=f1e274]:
+                - link [ref=f1e275] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=043deaefe4772b20e02c7bde5b79e4184474e9d9e99e2ff59089230bb7b3bdf3JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpK2FnZW50KyVlNCViOCVhZCVlNiU5NiU4NyVlNiU5NSU5OSVlNyVhOCU4YiZGT1JNPVFTUkU0&ntb=1
+                  - generic [ref=f1e277]:
+                    - text: pi agent
+                    - strong [ref=f1e278]: 中文教程
+        - listitem [ref=f1e279]:
+          - navigation "pi agent 官网 的更多搜索结果":
+            - list:
+              - listitem [ref=f1e280]:
+                - generic "第 1 页" [ref=f1e281]: "1"
+              - listitem [ref=f1e282]:
+                - link "第 2 页" [ref=f1e283] [cursor=pointer]:
+                  - /url: /search?q=pi+agent+%e5%ae%98%e7%bd%91&sp=-1&lq=0&pq=&sc=10-0&qs=n&sk=&cvid=D7D2F0987FD74619B1DAE4BC1FDC838F&FPIG=52B7F05A0495418D9E57D513A04053F7&first=11&FORM=PERE
+                  - text: "2"
+              - listitem [ref=f1e284]:
+                - link "第 3 页" [ref=f1e285] [cursor=pointer]:
+                  - /url: /search?q=pi+agent+%e5%ae%98%e7%bd%91&sp=-1&lq=0&pq=&sc=10-0&qs=n&sk=&cvid=D7D2F0987FD74619B1DAE4BC1FDC838F&FPIG=52B7F05A0495418D9E57D513A04053F7&first=21&FORM=PERE1
+                  - text: "3"
+              - listitem [ref=f1e286]:
+                - link "下一页" [ref=f1e287] [cursor=pointer]:
+                  - /url: /search?q=pi+agent+%e5%ae%98%e7%bd%91&sp=-1&lq=0&pq=&sc=10-0&qs=n&sk=&cvid=D7D2F0987FD74619B1DAE4BC1FDC838F&FPIG=52B7F05A0495418D9E57D513A04053F7&first=11&FORM=PORE
+    - complementary "更多结果" [ref=f1e288]:
+      - list [ref=f1e289]:
+        - listitem [ref=f1e290]:
+          - generic "相关搜索" [ref=f1e291]:
+            - generic [ref=f1e293]:
+              - heading [level=2] [ref=f1e295]:
+                - text: 深入了解
+                - strong [ref=f1e296]: pi agent 官网
+              - generic [ref=f1e297]:
+                - link [ref=f1e299] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=0e39475c1c440cb460eaa912283a317c2852b98c44a37b3b20cffe10e30b897fJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpK2NvZGluZyslZTUlYWUlOTglZTclYmQlOTEmRk9STT1SNUZE&ntb=1
+                  - generic [ref=f1e301]:
+                    - text: pi
+                    - strong [ref=f1e302]: coding
+                    - text: 官网
+                - link [ref=f1e304] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=dc8eeb3002f629717582d88fb4743f89b0224a95fee17607424ef339eac1ad52JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpKyVlNyViYyU5NiVlNyVhOCU4YiVlNSViNyVhNSVlNSU4NSViNyVlNSVhZSU5OCVlNyViZCU5MSZGT1JNPVI1RkQx&ntb=1
+                  - generic [ref=f1e306]:
+                    - text: pi
+                    - strong [ref=f1e307]: 编程工具
+                    - text: 官网
+                - link [ref=f1e309] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=5b474b1f6104c154255d68c8b43c646b2be8ea44019fc9bc4cb08c477f66adfaJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpK2FnZW50K2Rlc2t0b3AmRk9STT1SNUZEMg&ntb=1
+                  - generic [ref=f1e311]:
+                    - text: pi agent
+                    - strong [ref=f1e312]: desktop
+                - link [ref=f1e314] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=90fe4dd369922147ba238edcd71cffd0db64e489078fc002892432d7d5e6c22aJmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1L3NlYXJjaD9xPXBpK2FnZW50KyVlNCViOCVhZCVlNiU5NiU4NyVlNiU5NSU5OSVlNyVhOCU4YiZGT1JNPVI1RkQz&ntb=1
+                  - generic [ref=f1e316]:
+                    - text: pi agent
+                    - strong [ref=f1e317]: 中文教程
+  - contentinfo [ref=f1e318]:
+    - generic [ref=f1e319]:
+      - list:
+        - listitem [ref=f1e320]:
+          - link "隐私" [ref=f1e321] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=e2993c29770cd1486e25c31080c94d6d268574904873ffb8c22b23d656288026JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSWQ9NTIxODM5&ntb=1
+        - listitem [ref=f1e322]:
+          - link "条款" [ref=f1e323] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=4cb717bdd2698511a92c864542c52ac80f5cb05c13fdb4458401ad1e98c4c7e1JmltdHM9MTc4OTY4OTYwMA&ptn=3&ver=2&hsh=4&fclid=378fe520-7266-636f-3a9d-f2f873156297&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9MjQ2MzM4&ntb=1
