@@ -2,7 +2,7 @@
   "name": "toon-racing",
   "private": true,
   "version": "1.0.0",
-  "description": "Three.js 卡通风格 3D 赛车小游戏（教学 / Demo 向）",
+  "description": "Three.js 卡通风格 3D 赛车小游戏",
   "type": "module",
   "scripts": {
     "dev": "vite",
