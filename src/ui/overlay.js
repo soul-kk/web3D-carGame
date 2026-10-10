@@ -52,7 +52,8 @@ export class Overlay {
     }
     const lap = record.bestLapTime ? `${record.bestLapTime.toFixed(2)}s` : '--';
     const total = record.bestTotalTime ? `${record.bestTotalTime.toFixed(2)}s` : '--';
-    this.recordLine.textContent = `历史最佳 · 单圈 ${lap} · 总用时 ${total}`;
+    // 幽灵车录的是"整场"：它会和你一起静止起步、跑完全程
+    this.recordLine.textContent = `历史最佳 · 单圈 ${lap} · 总用时 ${total} · 幽灵车全程陪跑`;
   }
 
   /** 完赛结算界面 */

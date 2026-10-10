@@ -4,30 +4,40 @@ import { createCarModel } from './car.js';
 import { readJson, writeJson, removeKey } from '../core/storage.js';
 
 /**
- * 幽灵车：把"历史最佳的一圈"录下来，下一局用一辆半透明赛车重放。
+ * 幽灵车：把"最好的一整场"录下来，下一局用一辆半透明赛车重放。
  *
- * 【为什么这是最划算的玩法】计时赛本身没有对手，跑完一圈就没有理由再跑。
+ * 【为什么这是最划算的玩法】计时赛本身没有对手，跑完就没有理由再跑。
  * 幽灵车把"对手"变成上一局的自己，而且几乎不用写新的游戏规则：
  *
- *   1. 每帧记录玩家位置和朝向（GhostRecorder）
- *   2. 刷新最佳单圈时，把这一圈的采样存进 localStorage
+ *   1. 绿灯亮起后每帧记录玩家位置和朝向（GhostRecorder）
+ *   2. 刷新最佳总用时的那一局，把整场的采样存进 localStorage
  *   3. 下一局读出采样，按时间插值播放（GhostPlayer）
  *
+ * 【为什么录"整场"而不是"最佳单圈"】录单圈的话，录到的一定是个**飞行圈**
+ * （第 2/3 圈，过起点线时已经满速 55 m/s），而玩家第 1 圈是静止起步 ——
+ * 两边时间轴都从 0 开始，幽灵车一开场就领先十几个车位，这种对比没有意义。
+ * 录整场就不一样了：幽灵车的第 0 帧也是"停在起点线上、速度 0"，
+ * 它和你跑的是同一个赛程（静止起步 + 3 圈），从绿灯到终点线全程都可比。
+ *
  * 【为什么要定点化（乘 100 再取整）】localStorage 只能存字符串，
- * 一圈 30Hz 的采样大约有 1200 帧 × 3 个数字。如果直接存 JSON 浮点数，
+ * 一场 30Hz 的比赛大约有 1300 帧 × 3 个数字。如果直接存 JSON 浮点数，
  * 一个数字要 17 个字符；乘 100 取整后只剩 4~5 个字符，体积直接砍掉一半多，
  * 而且 0.01 的精度对幽灵车来说完全看不出来。
  */
 
 /** localStorage 里存历史最佳的 key（storage.js 会再加统一前缀） */
 const BEST_KEY = 'best';
-/** 记录格式版本：以后改了格式就把它 +1，老数据会被自动忽略而不是报错 */
-const RECORD_VERSION = 1;
+/**
+ * 记录格式版本。
+ * v1 存的是"最佳单圈"，v2 改成"整场"（ghost 里从 lapTime 变成 totalTime），
+ * 把版本号 +1 之后，老数据会被 loadBest 直接忽略，而不是读出一个跑不动的幽灵车。
+ */
+const RECORD_VERSION = 2;
 
 /** 采样频率。30Hz 够顺滑，数据量只有 60Hz 的一半 */
 export const GHOST_HZ = 30;
-/** 一圈超过这么久就不存（卡在草地兜圈子时别把存储撑爆） */
-const MAX_GHOST_SECONDS = 120;
+/** 一场超过这么久就不存（开着不动时别把存储撑爆） */
+const MAX_GHOST_SECONDS = 200;
 
 const POS_SCALE = 100;
 const HEADING_SCALE = 1000;
@@ -38,7 +48,7 @@ const HEADING_SCALE = 1000;
 
 /**
  * 读取历史最佳。
- * 结构：{ version, bestLapTime, bestTotalTime, ghost: { hz, lapTime, data } }
+ * 结构：{ version, bestLapTime, bestTotalTime, ghost: { hz, totalTime, data } }
  * @returns {object|null} 没有存档 / 格式不对时返回 null
  */
 export function loadBest() {
@@ -70,20 +80,21 @@ export function clearBest() {
 /* ================================================================== */
 
 /**
- * 把一圈采样打包成可存储对象。
+ * 把一整场的采样打包成可存储对象。
  * @param {number[]} data 扁平数组 [x, z, heading, x, z, heading, ...]
- * @param {number} lapTime
- * @returns {{hz:number, lapTime:number, data:number[]}|null} 数据太少 / 太长时返回 null
+ * @param {number} totalTime 这一场的总用时（用于显示出"幽灵比你快/慢多少"）
+ * @returns {{hz:number, totalTime:number, data:number[]}|null} 数据太少 / 太长时返回 null
  */
-export function packGhost(data, lapTime) {
+export function packGhost(data, totalTime) {
   const frames = data.length / 3;
   if (frames < 2) return null;
   if (frames / GHOST_HZ > MAX_GHOST_SECONDS) return null;
-  return { hz: GHOST_HZ, lapTime, data };
+  return { hz: GHOST_HZ, totalTime, data };
 }
 
 /**
- * 录制器：每帧喂给它赛车，它按固定间隔存下 (x, z, heading)。
+ * 录制器：每帧喂给它赛车，它按固定间隔存下 (x, z, heading)，
+ * 从绿灯一直记到终点线 —— 整场比赛一条时间轴。
  *
  * 【为什么按固定间隔而不是每帧】帧率在不同机器上不一样，
  * 按时间轴采样，幽灵在谁的电脑上跑出来的速度都一致。
@@ -94,12 +105,10 @@ export class GhostRecorder {
   }
 
   reset() {
-    /** 扁平数组 [x, z, heading, ...] */
+    /** 扁平数组 [x, z, heading, ...]，从头到尾就是这一整场 */
     this.data = [];
     /** 距离下一次采样的剩余时间 */
     this.acc = 0;
-    /** 当前这一圈在 data 里的起点（用于跑完一圈时切片） */
-    this.lapStart = 0;
   }
 
   /** 每帧调用（只在比赛中） */
@@ -114,13 +123,6 @@ export class GhostRecorder {
       Math.round(car.position.z * POS_SCALE),
       Math.round(car.heading * HEADING_SCALE),
     );
-  }
-
-  /** 取出刚跑完的这一圈，并把游标推到下一圈开头 */
-  takeLap() {
-    const lap = this.data.slice(this.lapStart);
-    this.lapStart = this.data.length;
-    return lap;
   }
 }
 
@@ -138,7 +140,7 @@ export class GhostRecorder {
 export class GhostPlayer {
   /**
    * @param {THREE.Scene} scene
-   * @param {{hz:number, lapTime:number, data:number[]}} record
+   * @param {{hz:number, totalTime:number, data:number[]}} record
    */
   constructor(scene, record) {
     this.scene = scene;
@@ -159,7 +161,13 @@ export class GhostPlayer {
   get heading() { return this.model.root.rotation.y; }
   get visible() { return this.model.root.visible; }
 
-  /** 玩家每开始一圈（以及比赛开始时）调用，让幽灵从起点重新跑 */
+  /**
+   * 绿灯亮起时调用一次，让幽灵车从起点线重新跑一整场。
+   *
+   * 【为什么只在发车时调用，而不是每圈】幽灵车录的是**整场**：
+   * 它的第 0 帧也是"停在起点线上、速度 0"，和你一样是静止起步，
+   * 所以两边从绿灯到终点线全程共用同一条时间轴，中途不需要重置。
+   */
   restart() {
     if (this.frameCount < 2) return;
     this.time = 0;
@@ -178,7 +186,7 @@ export class GhostPlayer {
     const cursor = this.time * this.record.hz;
 
     if (cursor >= last) {
-      // 幽灵已经跑完这一圈 —— 说明它比你快。藏起来，别在终点线堵着。
+      // 幽灵车已经跑完自己那一整场（也就是说它比你快）。藏起来，别在终点线堵着。
       this.#sampleAt(last);
       this.finished = true;
       this.model.root.visible = false;

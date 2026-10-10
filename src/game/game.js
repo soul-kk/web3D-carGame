@@ -260,8 +260,9 @@ export class Game {
       // 记下出发时的进度，避免起步瞬间被误判成"跑完一圈"
       const nearest = this.track.nearest(this.car.position.x, this.car.position.z, this.car.nearestIndex);
       this.race.previousProgress = this.track.progressOf(nearest.index);
-      // 计时开始的同时清空录制缓存、让幽灵车从起点出发
       this.recorder.reset();
+      // 幽灵车录的是"整场"，它的第 0 帧也是"停在起点线上、速度 0"，
+      // 所以就在发车这一帧让它出发 —— 它和你一样要静止起步。
       this.ghost?.restart();
     }
   }
@@ -330,16 +331,10 @@ export class Game {
   }
 
   #handleLapComplete(lap, time, isBest) {
-    // 每一圈都要把采样切走，否则录制数组会一圈一圈地越滚越长
-    const lapData = this.recorder.takeLap();
-
+    // 这里只记圈速。幽灵车是"整场"的，得等这一局跑完、
+    // 确认刷新了总用时记录，才把整场采样存下来（见 #handleFinish）。
     if (isBest) {
-      // 只存最佳那一圈的幽灵：这样赛道上的对手永远是"你最快的一次"
-      this.bestRecord = mergeBest({
-        bestLapTime: time,
-        ghost: packGhost(lapData, time),
-      });
-
+      this.bestRecord = mergeBest({ bestLapTime: time });
       this.hud.setTimes({ current: 0, best: time, total: this.race.totalTime });
       audio.blip(1200, 0.16, 'triangle', 0.12, 1800);
     }
@@ -358,7 +353,12 @@ export class Game {
     const previousBestTotal = this.recordAtStart?.bestTotalTime ?? null;
     const isNewRecord = previousBestTotal === null || summary.totalTime < previousBestTotal;
     if (isNewRecord) {
-      this.bestRecord = mergeBest({ bestTotalTime: summary.totalTime });
+      // 整场幽灵：录的是从绿灯到终点线的完整一局（含静止起步），
+      // 所以下一局它和你跑的是同一个赛程，从发车就能正面对比。
+      this.bestRecord = mergeBest({
+        bestTotalTime: summary.totalTime,
+        ghost: packGhost(this.recorder.data, summary.totalTime),
+      });
     }
 
     this.hud.clearMessage();
