@@ -9,7 +9,7 @@ export class Input {
     /** 当前按下的按键集合，key 是 KeyboardEvent.code，例如 'KeyW'、'ArrowUp' */
     this.keys = Object.create(null);
     /** 触屏虚拟按键状态 */
-    this.touch = { left: false, right: false, gas: false, brake: false };
+    this.touch = { left: false, right: false, gas: false, brake: false, drift: false };
     /** 动作键回调：'KeyM' → fn() */
     this.actions = new Map();
 
@@ -32,7 +32,8 @@ export class Input {
 
   /**
    * 读取这一帧的驾驶输入。
-   * @returns {{throttle:number, brake:number, steer:number}} steer: 1=左 -1=右
+   * @returns {{throttle:number, brake:number, steer:number, handbrake:number}}
+   *          steer: 1=左 -1=右；handbrake: 1=按住漂移
    */
   read() {
     const k = this.keys;
@@ -41,11 +42,13 @@ export class Input {
     const brake = k.KeyS || k.ArrowDown || t.brake;
     const left = k.KeyA || k.ArrowLeft || t.left;
     const right = k.KeyD || k.ArrowRight || t.right;
+    const handbrake = k.ShiftLeft || k.ShiftRight || t.drift;
 
     return {
       throttle: gas ? 1 : 0,
       brake: brake ? 1 : 0,
       steer: (left ? 1 : 0) - (right ? 1 : 0),
+      handbrake: handbrake ? 1 : 0,
     };
   }
 
@@ -104,5 +107,6 @@ export class Input {
     bind('touch-right', 'right');
     bind('touch-gas', 'gas');
     bind('touch-brake', 'brake');
+    bind('touch-drift', 'drift');
   }
 }

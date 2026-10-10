@@ -53,9 +53,9 @@ export class Minimap {
    * @param {object} data
    * @param {{position:THREE.Vector3, heading:number}} data.car
    * @param {Array} data.coins
-   * @param {Array} data.cones
+   * @param {{position:THREE.Vector3, heading:number, visible:boolean}|null} [data.ghost] 幽灵车
    */
-  draw({ car, coins, cones }) {
+  draw({ car, coins, ghost = null }) {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.size, this.size);
 
@@ -84,12 +84,21 @@ export class Minimap {
       ctx.fill();
     }
 
-    // 锥桶
-    ctx.fillStyle = '#ff7a1a';
-    for (const cone of cones) {
-      if (cone.knockedFor > 0) continue;
-      const [x, y] = this.toCanvas(cone.mesh.position.x, cone.mesh.position.z);
-      ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+    // 幽灵车：画在玩家车之前，浅蓝空心三角
+    if (ghost?.visible) {
+      const [ghostX, ghostY] = this.toCanvas(ghost.position.x, ghost.position.z);
+      ctx.save();
+      ctx.translate(ghostX, ghostY);
+      ctx.rotate(-ghost.heading + Math.PI);
+      ctx.strokeStyle = '#2fa8ff';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(0, -5.5);
+      ctx.lineTo(4, 4.5);
+      ctx.lineTo(-4, 4.5);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
     }
 
     // 赛车：画一个小三角表示朝向

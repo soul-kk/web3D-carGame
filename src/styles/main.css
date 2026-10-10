@@ -71,6 +71,34 @@ canvas { display: block; }
   box-shadow: 4px 4px 0 rgba(27, 36, 48, .85);
 }
 
+/* 氮气条：漂移中变橙，满格变亮蓝并呼吸 */
+#nitro {
+  position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%);
+  width: 260px; text-align: center;
+}
+#nitro-label {
+  margin-bottom: 5px; font-size: 12px; font-weight: 800; color: #fff;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 0 #1b2430, -2px 0 0 #1b2430, 2px 0 0 #1b2430, 0 -2px 0 #1b2430;
+}
+#nitro-bar {
+  height: 16px; overflow: hidden;
+  background: rgba(255, 255, 255, .78);
+  border: 3px solid #1b2430; border-radius: 11px;
+  box-shadow: 4px 4px 0 rgba(27, 36, 48, .85);
+}
+#nitro-fill {
+  height: 100%; width: 0;
+  background: linear-gradient(90deg, #46b6ff, #19c6ff);
+  transition: width .06s linear;
+}
+#nitro.drifting #nitro-fill { background: linear-gradient(90deg, #ffb703, #ff7a1a); }
+#nitro.full #nitro-fill {
+  background: linear-gradient(90deg, #19c6ff, #7ef9ff);
+  animation: nitro-pulse .42s infinite alternate;
+}
+@keyframes nitro-pulse { from { opacity: .55; } to { opacity: 1; } }
+
 /* ============================================================
    开始 / 结束界面
    ============================================================ */
@@ -123,6 +151,13 @@ kbd {
 .stats b { display: block; font-size: 26px; color: #1b2430; font-variant-numeric: tabular-nums; }
 .stats span { font-size: 12px; opacity: .6; }
 
+.record { font-size: 17px; font-weight: 900; color: #ff9f1c; }
+.link {
+  text-decoration: underline; cursor: pointer; pointer-events: auto;
+  font-size: 13px;
+}
+.link:hover { color: #ff4d5a; }
+
 /* ============================================================
    移动端虚拟按键
    ============================================================ */
@@ -140,3 +175,5 @@ kbd {
 #touch-right { left: 114px; bottom: 110px; }
 #touch-gas   { right: 22px;  bottom: 110px; }
 #touch-brake { right: 114px; bottom: 110px; }
+/* 漂移键放在油门正上方，右手拇指一按就能甩尾 */
+#touch-drift { right: 22px; bottom: 200px; font-size: 18px; }

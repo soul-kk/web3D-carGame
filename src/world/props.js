@@ -58,7 +58,12 @@ export class Coins {
       if (!coin.alive) {
         if (coin.dyingFor > 0) {
           coin.dyingFor -= dt;
-          coin.mesh.scale.multiplyScalar(1 + 6 * dt);   // 越变越大
+          // 【为什么只能这么小】金币在被吃掉的原地"膨一下"就消失，
+          // 但车已经开过去了，这个金币正好落在摄像机前面。
+          // 原来用 1 + 6 * dt 长 0.25 秒（最多胀到 4.5 倍），
+          // 实测是一个挡住半个屏幕的黄色大墙（4.17 倍 / 距摄像机 10.8）。
+          // 所以改成小幅度快消失：保留"弹一下"的手感，不挡视线。
+          coin.mesh.scale.multiplyScalar(1 + 2.2 * dt);
           if (coin.dyingFor <= 0) coin.mesh.visible = false;
         }
         continue;
@@ -79,125 +84,8 @@ export class Coins {
       if (!coin.alive) continue;
       if (position.distanceTo(coin.mesh.position) < PROPS.coinRadius) {
         coin.alive = false;
-        coin.dyingFor = 0.25;
+        coin.dyingFor = 0.2;
         return coin.mesh.position.clone();
-      }
-    }
-    return null;
-  }
-}
-
-/* ------------------------------------------------------------------ */
-
-/**
- * 路障锥桶：被撞到会翻着跟头飞出去，几秒后自动回到原位。
- */
-export class Cones {
-  constructor(scene, track) {
-    this.scene = scene;
-    this.track = track;
-    this.list = [];
-
-    const coneGeometry = new THREE.ConeGeometry(0.62, 1.5, 8);
-    coneGeometry.translate(0, 0.85, 0);
-    const baseGeometry = new THREE.BoxGeometry(1.5, 0.16, 1.5);
-    baseGeometry.translate(0, 0.08, 0);
-    this.coneMaterial = toon(COLORS.cone);
-    this.baseMaterial = toon(COLORS.coneBase);
-
-    for (let i = 0; i < PROPS.cones; i++) {
-      const group = new THREE.Group();
-      const cone = new THREE.Mesh(coneGeometry, this.coneMaterial);
-      const base = new THREE.Mesh(baseGeometry, this.baseMaterial);
-      cone.castShadow = base.castShadow = true;
-      group.add(cone, base);
-
-      // 随机丢在路面宽度内
-      const t = Math.random();
-      const p = this.track.pointAt(t);
-      const n = this.track.normalAt(t);
-      const offset = (Math.random() * 2 - 1) * (track.halfWidth - 2);
-      group.position.set(p.x + n.x * offset, 0, p.z + n.z * offset);
-
-      scene.add(group);
-      this.list.push({
-        mesh: group,
-        home: group.position.clone(),        // 原位
-        velocity: new THREE.Vector3(),
-        spin: new THREE.Vector3(),
-        knockedFor: 0,                       // >0 表示正在"被撞飞"的状态
-      });
-    }
-  }
-
-  reset() {
-    for (const cone of this.list) {
-      cone.mesh.position.copy(cone.home);
-      cone.mesh.rotation.set(0, 0, 0);
-      cone.mesh.visible = true;
-      cone.velocity.set(0, 0, 0);
-      cone.spin.set(0, 0, 0);
-      cone.knockedFor = 0;
-    }
-  }
-
-  update(dt, gravity) {
-    for (const cone of this.list) {
-      if (cone.knockedFor <= 0) continue;
-
-      cone.knockedFor -= dt;
-
-      // 简易抛体运动：重力 + 地面反弹 + 摩擦
-      const moving = cone.velocity.lengthSq() > 0.01 || cone.mesh.position.y > 0;
-      if (moving) {
-        cone.velocity.y -= gravity * dt;
-        cone.mesh.position.addScaledVector(cone.velocity, dt);
-        cone.mesh.rotation.x += cone.spin.x * dt;
-        cone.mesh.rotation.y += cone.spin.y * dt;
-        cone.mesh.rotation.z += cone.spin.z * dt;
-
-        if (cone.mesh.position.y <= 0) {
-          cone.mesh.position.y = 0;
-          cone.velocity.y = Math.abs(cone.velocity.y) * 0.3;
-          cone.velocity.x *= 0.6;
-          cone.velocity.z *= 0.6;
-          cone.spin.multiplyScalar(0.6);
-          if (cone.velocity.y < 0.6) {
-            cone.velocity.set(0, 0, 0);
-            cone.spin.multiplyScalar(0.2);
-          }
-        }
-      }
-
-      if (cone.knockedFor <= 0) {
-        // 计时结束 → 归位
-        cone.mesh.position.copy(cone.home);
-        cone.mesh.rotation.set(0, 0, 0);
-        cone.velocity.set(0, 0, 0);
-        cone.onRespawn?.();
-      }
-    }
-  }
-
-  /**
-   * 赛车撞到锥桶了吗？撞到就把它打飞，并返回被撞的锥桶。
-   * 物理上的"减速 / 抖动"由调用方（Game）决定，这里只管锥桶自己。
-   */
-  hitTest(position, speed) {
-    if (speed <= 2) return null;
-    for (const cone of this.list) {
-      if (cone.knockedFor > 0) continue;
-      const dx = cone.mesh.position.x - position.x;
-      const dz = cone.mesh.position.z - position.z;
-      if (dx * dx + dz * dz < PROPS.coneHitRadius ** 2) {
-        cone.knockedFor = 3.5;
-        cone.velocity.set(-dx * 1.6, 5 + Math.random() * 3, -dz * 1.6);
-        cone.spin.set(
-          (Math.random() - 0.5) * 14,
-          (Math.random() - 0.5) * 14,
-          (Math.random() - 0.5) * 14,
-        );
-        return cone;
       }
     }
     return null;

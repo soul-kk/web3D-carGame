@@ -1,3 +1,10 @@
+/** 氮气条上方的文字提示，按状态切换 */
+const NITRO_HINT = {
+  '': '按住 Shift 漂移攒氮气',
+  drifting: '漂移中…',
+  full: '氮气就绪！松开手刹',
+};
+
 /**
  * HUD（抬头显示）：把游戏数据画成屏幕上的文字。
  *
@@ -14,9 +21,13 @@ export class Hud {
       total: document.getElementById('hud-total'),
       speed: document.getElementById('hud-speed'),
       coins: document.getElementById('hud-coins'),
+      ghost: document.getElementById('hud-ghost'),
       sound: document.getElementById('hud-sound'),
       messages: document.getElementById('messages'),
       wrongWay: document.getElementById('wrong-way'),
+      nitro: document.getElementById('nitro'),
+      nitroFill: document.getElementById('nitro-fill'),
+      nitroLabel: document.getElementById('nitro-label'),
     };
 
     /** 中央大字提示的剩余显示时间 */
@@ -25,6 +36,9 @@ export class Hud {
     this.lastSpeed = -1;
     this.lastCoins = -1;
     this.lastWrongWay = false;
+    this.lastGhost = null;
+    this.lastNitroPercent = -1;
+    this.lastNitroState = null;
   }
 
   show() { this.root.classList.remove('hidden'); }
@@ -62,6 +76,38 @@ export class Hud {
 
   setSoundEnabled(enabled) {
     this.el.sound.textContent = enabled ? '开' : '关';
+  }
+
+  /** 这一局有没有幽灵车（历史最佳回放） */
+  setGhost(available) {
+    if (available !== this.lastGhost) {
+      this.el.ghost.textContent = available ? '有' : '无';
+      this.lastGhost = available;
+    }
+  }
+
+  /**
+   * 氮气条。
+   * @param {number} charge 0~1 的充能进度
+   * @param {boolean} drifting 这一帧是否正在漂移（充能中）
+   */
+  setNitro(charge, drifting) {
+    const percent = Math.round(charge * 100);
+    if (percent !== this.lastNitroPercent) {
+      this.el.nitroFill.style.width = `${percent}%`;
+      this.lastNitroPercent = percent;
+    }
+
+    // 'drifting' ＞ 'full' ＞ '' —— 漂移中优先显示，这样玩家知道"现在攒得动"
+    let state = '';
+    if (drifting) state = 'drifting';
+    else if (charge >= 1) state = 'full';
+    if (state === this.lastNitroState) return;
+
+    this.lastNitroState = state;
+    this.el.nitro.classList.toggle('drifting', state === 'drifting');
+    this.el.nitro.classList.toggle('full', state === 'full');
+    this.el.nitroLabel.textContent = NITRO_HINT[state];
   }
 
   setWrongWay(active) {

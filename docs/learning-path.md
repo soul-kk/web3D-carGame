@@ -115,7 +115,7 @@ renderer.setAnimationLoop(() => {
 | 主题 | 学什么 | 加进项目的练习 |
 | --- | --- | --- |
 | **模型加载** | `GLTFLoader` 加载 `.glb`，`DRACOLoader` 压缩 | 去 [Sketchfab](https://sketchfab.com/) 下个免费低模车替换现在的方块车 |
-| **交互** | `Raycaster` 射线拾取 | 点击赛道上的锥桶把它删掉 |
+| **交互** | `Raycaster` 射线拾取 | 点击赛道边的树把它删掉 |
 | **动画** | `AnimationMixer`、骨骼动画 | 起点处放一个挥手的小人 |
 | **曲线动画** | `CatmullRomCurve3` + `getPointAt` | 让几架飞机沿曲线在赛道上方飞过 |
 | **后处理** | `EffectComposer`、描边/泛光/景深 | 加一层描边或轻微 bloom |
@@ -241,8 +241,11 @@ Web 3D 的常见出路，选一个深耕：
 | 天空与太阳 | ShaderMaterial / 渐变 / BackSide / 自发光球体 | `core/app.js` |
 | 赛道 | CatmullRomCurve3 / BufferGeometry / UV / 顶点顺序 | `world/track.js` |
 | 树与云 | InstancedMesh / instanceColor / 低模 | `world/environment.js` |
-| 金币锥桶 | 共享几何体 / 碰撞检测（距离判定）/ 抛体运动 | `world/props.js` |
+| 金币与加速带 | 共享几何体 / 碰撞检测（距离判定）/ 程序化贴图 | `world/props.js` |
 | 车 | 场景图 / Group 嵌套 / 向量分解 / 指数衰减 | `game/car.js` |
+| 漂移氮气 | 充能状态机 / 边沿判定（松开手刹那一帧）/ 参数调优 | `game/car.js` `config.js` |
+| 幽灵车 | 固定时间步录制 / 插值回放 / 最短弧角度插值 / 定点化存储 | `game/ghost.js` |
+| 存档 | localStorage / try-catch 降级 / 数据版本号 | `core/storage.js` |
 | 相机 | lerp 插值 / lookAt / FOV / 屏幕抖动 | `game/camera.js` |
 | 比赛规则 | 状态机 / 进度判定 / 计时 | `game/race.js` |
 | 输入 | 事件监听 / 统一抽象 | `game/input.js` |

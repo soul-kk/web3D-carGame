@@ -51,6 +51,45 @@ export const CAR = {
   boostFactor: 1.5,
   boostAccelFactor: 2.2,
   boostDuration: 1.4,
+  /** 手刹（漂移）：按住时侧向抓地力骤降，车尾甩出去 */
+  handbrakeGrip: 2.8,
+  /**
+   * 手刹带来的额外前进阻力。
+   * 注意这个是"指数衰减系数"：0.7 意味着每秒速度乘 exp(-0.7) ≈ 0.5，
+   * 漂一秒掉一半速度 —— 实测下来太狠了（整圈慢一倍多），0.25 刚好是
+   * "漂移确实掉速，但不会把速度吃光"的程度。
+   */
+  handbrakeDrag: 0.25,
+  /**
+   * 手刹时转向的额外倍率。
+   * 不要调大：真正把车头甩过去的是"侧滑"，再叠一个转向倍率只会让车打转，
+   * 实测倍率 1.15 时侧滑角会冲到 60° 以上（转圈），1.0 才是可控的漂移。
+   */
+  handbrakeTurnGain: 1.0,
+};
+
+/**
+ * 漂移攒氮气：按住手刹甩尾时充能，满格后松开手刹自动喷。
+ *
+ * 【为什么要"攒"】如果漂移直接给加速，玩家就会一路按着手刹不动。
+ * 把奖励放在"松开"的那一刻，漂移就变成了一次有始有终的操作，
+ * 玩家必须在出弯前把车摆正，才有意义。
+ */
+export const NITRO = {
+  /** 判定"正在漂移"的最小侧滑速度（太小只是正常转弯） */
+  driftMinLateral: 4.5,
+  /** 判定"正在漂移"的最低车速 */
+  driftMinSpeed: 8,
+  /**
+   * 漂移时每秒充能（1 = 满格）→ 满格需要约 1.3 秒。
+   * 之所以要这么久：实测 0.9 秒就能满格时，玩家可以"漂 0.9 秒 → 喷 2 秒"无限循环，
+   * 氮气就变成常驻状态了。让充能时间明显长于续航时间，才能形成取舍。
+   */
+  chargeRate: 0.75,
+  /** 没在漂移时每秒衰减 */
+  decayRate: 0.55,
+  /** 满格释放后的加速时长（秒） */
+  boostDuration: 1.6,
 };
 
 export const CAMERA = {
@@ -69,7 +108,6 @@ export const CAMERA = {
 };
 
 export const WORLD = {
-  gravity: 26,
   fog: { color: 0xcfe9ff, near: 200, far: 850 },
   sky: { top: 0x2f7fd8, bottom: 0xd8f0ff },
   /** 平行光（太阳）方向，会被归一化 */
@@ -89,8 +127,6 @@ export const COLORS = {
   treeLeaf: 0x3f9142,
   cloud: 0xffffff,
   coin: 0xffd166,
-  cone: 0xff7a1a,
-  coneBase: 0xe35d00,
   carBody: 0xff4d5a,
   carGlass: 0xa8e6ff,
   carDark: 0x2b2f3a,
@@ -98,16 +134,16 @@ export const COLORS = {
   rim: 0xdfe4ec,
   dustTrack: 0xffffff,
   dustGrass: 0xd9f5a8,
+  /** 氮气尾焰 */
+  nitro: 0x66e0ff,
 };
 
-/** 金币 / 锥桶 / 加速带 的摆放数量 */
+/** 金币 / 加速带 的摆放数量 */
 export const PROPS = {
   coinGroups: 10,
   coinsPerGroup: 3,
   coinRadius: 2.8,
   coinHeight: 1.5,
-  cones: 18,
-  coneHitRadius: 3.2,
   boostPadParams: [0.16, 0.34, 0.52, 0.7, 0.86],
   boostTriggerRadius: 3.6,
 };

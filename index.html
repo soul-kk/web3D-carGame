@@ -21,10 +21,16 @@
     <div class="panel" id="panel-right">
       <canvas id="minimap" width="150" height="150"></canvas>
       <div class="row"><span class="label">金币</span><span id="hud-coins">0</span></div>
+      <div class="row"><span class="label">幽灵</span><span id="hud-ghost">无</span></div>
       <div class="row"><span class="label">音效 M</span><span id="hud-sound">开</span></div>
     </div>
 
     <div id="speedo"><span id="hud-speed">0</span><span class="unit">km/h</span></div>
+
+    <div id="nitro">
+      <div id="nitro-label">按住 Shift 漂移攒氮气</div>
+      <div id="nitro-bar"><div id="nitro-fill"></div></div>
+    </div>
 
     <div id="messages"></div>
     <div id="wrong-way" class="hidden">↩ 逆 行 中</div>
@@ -36,6 +42,7 @@
     <div class="tbtn" id="touch-right">▶</div>
     <div class="tbtn" id="touch-gas">▲</div>
     <div class="tbtn" id="touch-brake">▼</div>
+    <div class="tbtn" id="touch-drift">漂移</div>
   </div>
 
   <!-- ============ 开始 / 结束界面 ============ -->
@@ -44,12 +51,15 @@
       <h1>卡 通 赛 车</h1>
       <p>Three.js 3D 赛车 Demo</p>
       <div class="keys">
-        <kbd>W ↑ 加速</kbd><kbd>S ↓ 刹车/倒车</kbd><kbd>A ← 左转</kbd><kbd>D → 右转</kbd>
+        <kbd>W ↑ 加速</kbd><kbd>S ↓ 刹车/倒车</kbd><kbd>A ← 左转</kbd><kbd>D → 右转</kbd><kbd>Shift 手刹漂移</kbd>
       </div>
-      <p>收集金币 🪙 · 躲开路障 🚧 · 冲过加速带 ⏩ · 跑完 <b id="laps-hint">3</b> 圈</p>
+      <p>收集金币 🪙 · 冲过加速带 ⏩ · 跑完 <b id="laps-hint">3</b> 圈</p>
+      <p><b>按住 Shift 甩尾漂移</b>，氮气条攒满后松开手刹就能喷氮气 🚀</p>
       <p class="dim">按 <kbd>R</kbd> 回到赛道 · <kbd>M</kbd> 开关音效</p>
+      <p class="dim" id="record-line"></p>
       <div class="spacer"></div>
       <div class="btn" id="btn-start">开 始 比 赛</div>
+      <p class="dim"><span class="link" id="btn-clear">清除最佳记录</span></p>
     </div>
   </div>
 
