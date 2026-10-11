@@ -1,7 +1,8 @@
-import { CAR, COLORS, RACE } from '../config.js';
+import { CAR, COLORS, NITRO, RACE } from '../config.js';
 import { createEnvironment } from '../world/environment.js';
 import { Coins, BoostPads } from '../world/props.js';
 import { Particles } from '../fx/particles.js';
+import { Skidmarks } from '../fx/skidmarks.js';
 import { Car } from './car.js';
 import { Race } from './race.js';
 import { ChaseCamera } from './camera.js';
@@ -36,6 +37,9 @@ export class Game {
     this.coins = new Coins(scene, this.track);
     this.boostPads = new BoostPads(scene, this.track);
     this.particles = new Particles(scene, 60);
+    this.skidmarks = new Skidmarks(scene);
+    this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    this.chargeTier = 0;
 
     /* ---------- 赛车 & 相机 ---------- */
     this.car = new Car();
@@ -65,6 +69,8 @@ export class Game {
     this.dustTimer = 0;
     /** 氮气尾焰的节流计时 */
     this.boostTimer = 0;
+    /** 仅手刹释放的氮气时长；加速带不会打开屏幕特效。 */
+    this.nitroFxRemaining = 0;
 
     this.#bindActions();
     this.resetWorld();
@@ -114,6 +120,7 @@ export class Game {
     this.#handleCoins();
     this.#handleNitro(dt, carState);
     this.#spawnTireSmoke(dt, carState);
+    this.skidmarks.update(dt, car, this.race.canDrive && carState.drifting);
 
     /* ---------- 4. 幽灵车录制 / 回放 ---------- */
     if (this.race.isRacing) this.recorder.record(dt, car);
@@ -135,12 +142,17 @@ export class Game {
     this.environment.update(dt);
 
     /* ---------- 7. 相机 / 光照 ---------- */
-    this.cameraRig.update(dt, car);
+    this.cameraRig.update(dt, car, {
+      drifting: carState.drifting,
+      lateralSpeed: carState.lateralSpeed,
+      reducedMotion: this.reducedMotion.matches,
+    });
     this.#updateSun();
 
     /* ---------- 8. UI 与声音 ---------- */
-    this.#updateHud(dt, carState.speed, wrongWay);
+    this.#updateHud(dt, carState, wrongWay);
     audio.engine(carState.speed, input.throttle, this.race.isRacing);
+    audio.drift(carState.lateralSpeed, this.race.isRacing && carState.drifting);
   }
 
   /** 渲染前的最后一件事：更新小地图 */
@@ -195,6 +207,11 @@ export class Game {
     this.lastCountdownNumber = -1;
     this.dustTimer = 0;
     this.boostTimer = 0;
+    this.nitroFxRemaining = 0;
+    this.chargeTier = 0;
+    this.skidmarks.reset();
+    this.hud.resetEffects();
+    audio.drift(0, false);
 
     // 重新读一次存档，并把"上一局最佳"作为 HUD 上的目标显示出来 ——
     // 哪怕还没有幽灵车，看到上一局的圈速也会想再跑一次。
@@ -215,7 +232,7 @@ export class Game {
     this.hud.setTimes({ current: 0, best: this.race.bestLap, total: 0 });
     this.hud.setCoins(0);
     this.hud.setWrongWay(false);
-    this.hud.setNitro(0, false);
+    this.hud.setNitro(0, { active: false });
     this.hud.clearMessage();
   }
 
@@ -287,12 +304,33 @@ export class Game {
     }
   }
 
-  /** 满格氮气释放：声音 + 镜头抖动 + 车尾蓝白尾焰 */
+  /** 阶段提示只在充能上升时触发一次；松手喷氮气有单独的短促高潮。 */
   #handleNitro(dt, carState) {
+    const charge = carState.driftCharge;
     if (carState.nitroFired) {
+      this.nitroFxRemaining = this.car.boost;
+      this.chargeTier = 0;
       audio.blip(240, 0.42, 'sawtooth', 0.13, 1500);
-      this.cameraRig.addShake(0.3);
+      this.cameraRig.addBoostKick();
+      this.hud.burstNitro();
+      this.#vibrate([30, 20, 45]);
+    } else if (carState.drifting) {
+      let tier = 0;
+      if (charge >= 1) tier = 2;
+      else if (charge >= 0.5) tier = 1;
+      if (tier > this.chargeTier) {
+        this.chargeTier = tier;
+        audio.chargeTier(tier);
+        this.#vibrate(tier === 2 ? 25 : 12);
+      }
+    } else if (charge <= 0.02) {
+      this.chargeTier = 0;
     }
+
+    // 跟随氮气加速时长，而非释放动画的固定 .46 秒；加速带不延长氮气特效。
+    if (!carState.nitroFired) this.nitroFxRemaining = Math.max(0, this.nitroFxRemaining - dt);
+    if (this.car.boost <= 0 || !this.race.canDrive) this.nitroFxRemaining = 0;
+    this.hud.setNitroBoost(this.nitroFxRemaining > 0);
 
     // 加速期间（氮气或加速带）持续冒尾焰
     if (this.car.boost <= 0) return;
@@ -307,6 +345,11 @@ export class Game {
       this.car.position.z - forward.z * 2.3,
       COLORS.nitro,
     );
+  }
+
+  /** 触屏可选振动；系统要求减少动态效果时不触发。 */
+  #vibrate(pattern) {
+    if (!this.reducedMotion.matches && 'ontouchstart' in window) navigator.vibrate?.(pattern);
   }
 
   /** 出界或漂移时后轮冒烟（冒烟 = 正在攒氮气，玩家一眼就能看懂） */
@@ -346,6 +389,8 @@ export class Game {
   }
 
   #handleFinish(summary) {
+    this.nitroFxRemaining = 0;
+    this.hud.setNitroBoost(false);
     audio.blip(660, 0.18, 'triangle', 0.14, 990);
     setTimeout(() => audio.blip(990, 0.35, 'triangle', 0.14, 1320), 180);
 
@@ -372,6 +417,7 @@ export class Game {
     const point = this.track.points[nearest.index];
     const tangent = this.track.tangents[nearest.index];
     this.car.placeAt(point, Math.atan2(tangent.x, tangent.z), nearest.index);
+    this.skidmarks.breakTrail();
     this.cameraRig.snapTo(this.car);
   }
 
@@ -391,7 +437,8 @@ export class Game {
     this.sunLight.target.updateMatrixWorld();
   }
 
-  #updateHud(dt, speed, wrongWay) {
+  #updateHud(dt, carState, wrongWay) {
+    const speed = carState.speed;
     this.hud.update(dt);
     this.hud.setLap(this.race.lap, this.race.totalLaps);
     this.hud.setTimes({
@@ -401,6 +448,12 @@ export class Game {
     });
     this.hud.setSpeed(speed);
     this.hud.setWrongWay(wrongWay);
-    this.hud.setNitro(this.car.driftCharge, this.car.drifting);
+    this.hud.setNitro(this.car.driftCharge, {
+      active: this.race.isRacing,
+      handbrake: this.car.handbrake,
+      drifting: this.car.drifting,
+      onTrack: this.car.onTrack,
+      slow: Math.abs(carState.forwardSpeed) < NITRO.driftMinSpeed,
+    });
   }
 }

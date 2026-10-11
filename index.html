@@ -11,6 +11,7 @@
 
   <!-- ============ 游戏内 HUD ============ -->
   <div id="hud" class="hidden">
+    <div id="drift-fx" aria-hidden="true"></div>
     <div class="panel" id="panel-left">
       <div class="row"><span class="label">圈数</span><span id="hud-lap">1 / 3</span></div>
       <div class="row"><span class="label">本圈</span><span id="hud-current">0.00</span></div>
@@ -29,7 +30,9 @@
 
     <div id="nitro">
       <div id="nitro-label">按住 Shift 漂移攒氮气</div>
-      <div id="nitro-bar"><div id="nitro-fill"></div></div>
+      <div id="nitro-bar" role="progressbar" aria-label="漂移氮气充能" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="nitro-fill"></div><div class="nitro-midline"></div>
+      </div>
     </div>
 
     <div id="messages"></div>

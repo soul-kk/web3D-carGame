@@ -10,6 +10,8 @@ class GameAudio {
     this.master = null;
     this.engineOscillator = null;
     this.engineGain = null;
+    this.skidGain = null;
+    this.skidFilter = null;
     this.enabled = true;
     this.onToggle = null;
   }
@@ -44,6 +46,24 @@ class GameAudio {
     filter.connect(this.engineGain);
     this.engineGain.connect(this.master);
     this.engineOscillator.start();
+
+    // 循环噪声经带通滤波变成轮胎摩擦声：只更新增益/音色，不在每帧新建音源。
+    const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+    const skid = this.ctx.createBufferSource();
+    skid.buffer = buffer;
+    skid.loop = true;
+    this.skidFilter = this.ctx.createBiquadFilter();
+    this.skidFilter.type = 'bandpass';
+    this.skidFilter.frequency.value = 900;
+    this.skidFilter.Q.value = 0.7;
+    this.skidGain = this.ctx.createGain();
+    this.skidGain.gain.value = 0;
+    skid.connect(this.skidFilter);
+    this.skidFilter.connect(this.skidGain);
+    this.skidGain.connect(this.master);
+    skid.start();
   }
 
   resume() {
@@ -65,6 +85,20 @@ class GameAudio {
       now,
       0.1,
     );
+  }
+
+  /** 持续侧滑声：侧滑越大，摩擦声越亮；停止时平滑淡出。 */
+  drift(lateralSpeed, active) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const slip = active ? Math.min(Math.abs(lateralSpeed) / 22, 1) : 0;
+    this.skidGain.gain.setTargetAtTime(slip * 0.085, now, active ? 0.065 : 0.11);
+    this.skidFilter.frequency.setTargetAtTime(650 + slip * 1700, now, 0.08);
+  }
+
+  /** 充能跨过阶段时的短音；不同阶段音高不同。 */
+  chargeTier(tier) {
+    this.blip(tier === 2 ? 1120 : 720, 0.16, 'triangle', 0.09, tier === 2 ? 1760 : 1050);
   }
 
   /**

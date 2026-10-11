@@ -71,33 +71,62 @@ canvas { display: block; }
   box-shadow: 4px 4px 0 rgba(27, 36, 48, .85);
 }
 
-/* 氮气条：漂移中变橙，满格变亮蓝并呼吸 */
+/* 卡通赛道仪表：蓄力像转速表逐段升温，满格转亮蓝；反馈不依赖颜色单独传达。 */
 #nitro {
   position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%);
-  width: 260px; text-align: center;
+  width: min(270px, 60vw); text-align: center;
 }
 #nitro-label {
-  margin-bottom: 5px; font-size: 12px; font-weight: 800; color: #fff;
-  letter-spacing: 1px;
+  margin-bottom: 5px; font-size: 13px; font-weight: 900; color: #fff;
+  letter-spacing: 1px; white-space: nowrap;
   text-shadow: 0 2px 0 #1b2430, -2px 0 0 #1b2430, 2px 0 0 #1b2430, 0 -2px 0 #1b2430;
 }
 #nitro-bar {
-  height: 16px; overflow: hidden;
-  background: rgba(255, 255, 255, .78);
+  position: relative; height: 18px; overflow: hidden;
+  background: rgba(255, 255, 255, .86);
   border: 3px solid #1b2430; border-radius: 11px;
   box-shadow: 4px 4px 0 rgba(27, 36, 48, .85);
 }
 #nitro-fill {
   height: 100%; width: 0;
-  background: linear-gradient(90deg, #46b6ff, #19c6ff);
+  background: linear-gradient(90deg, #ffd166, #ff7a1a);
   transition: width .06s linear;
 }
-#nitro.drifting #nitro-fill { background: linear-gradient(90deg, #ffb703, #ff7a1a); }
-#nitro.full #nitro-fill {
-  background: linear-gradient(90deg, #19c6ff, #7ef9ff);
-  animation: nitro-pulse .42s infinite alternate;
+.nitro-midline {
+  position: absolute; z-index: 1; top: 0; bottom: 0; left: 50%;
+  width: 3px; background: #1b2430;
 }
-@keyframes nitro-pulse { from { opacity: .55; } to { opacity: 1; } }
+#nitro.half #nitro-fill { background: linear-gradient(90deg, #ffb703, #ff4d5a); }
+#nitro.ready #nitro-fill {
+  background: linear-gradient(90deg, #19c6ff, #a5ffff);
+  animation: nitro-pulse .4s infinite alternate;
+}
+#nitro.ready #nitro-bar { box-shadow: 0 0 0 4px rgba(25, 198, 255, .5), 4px 4px 0 #1b2430; }
+#nitro.burst #nitro-label, #nitro.boosting #nitro-label { color: #8cfaff; }
+#nitro.burst #nitro-bar, #nitro.boosting #nitro-bar { box-shadow: 0 0 0 5px rgba(25, 198, 255, .6), 4px 4px 0 #1b2430; }
+@keyframes nitro-pulse { from { opacity: .6; } to { opacity: 1; } }
+
+/* 氮气加速期间始终显示蓝色边缘光和流动速度线；释放瞬间另闪一次。 */
+#drift-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0; }
+#drift-fx.active { opacity: 1; }
+#drift-fx::before, #drift-fx::after { content: ''; position: absolute; inset: 0; }
+#drift-fx::before { box-shadow: inset 0 0 70px 12px rgba(57, 222, 255, .5); }
+#drift-fx.burst::before { animation: drift-flash .46s ease-out; }
+#drift-fx::after {
+  background: repeating-conic-gradient(from 7deg at 50% 54%, transparent 0deg 18deg, rgba(126, 249, 255, .35) 20deg 21deg, transparent 22deg 30deg);
+  mask-image: radial-gradient(ellipse at center, transparent 32%, #000 92%);
+}
+#drift-fx.active::after { animation: drift-lines .55s linear infinite; }
+@keyframes drift-flash {
+  0% { opacity: 1; box-shadow: inset 0 0 95px 25px rgba(57, 222, 255, .95); }
+  100% { opacity: 1; box-shadow: inset 0 0 70px 12px rgba(57, 222, 255, .5); }
+}
+@keyframes drift-lines { from { transform: scale(.92); opacity: .15; } to { transform: scale(1.14); opacity: .65; } }
+@media (prefers-reduced-motion: reduce) {
+  #nitro-fill { transition: none; }
+  #nitro.ready #nitro-fill, #drift-fx.active::after, #drift-fx.burst::before { animation: none; }
+  #drift-fx.active { opacity: 0; }
+}
 
 /* ============================================================
    开始 / 结束界面
