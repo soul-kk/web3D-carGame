@@ -47,6 +47,7 @@ const game = new Game({
 /* 6. 界面按钮 → 游戏流程 */
 overlay.onStart = () => game.start();
 overlay.onRestart = () => game.restart();
+overlay.onReturn = () => game.returnToMenu();
 
 /* 7. 跑起来：每帧「逻辑更新 → 画小地图 → 渲染 3D」 */
 app.start(

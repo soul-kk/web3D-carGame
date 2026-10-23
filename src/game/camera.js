@@ -36,23 +36,49 @@ export class ChaseCamera {
   /** 氮气释放瞬间向前推一小段，再指数回弹；不同于持续的加速 FOV。 */
   addBoostKick() { this.kick = 1; }
 
+  /** 静止赛车对应的追车位；可供菜单转场复用，避免镜头目标重复计算。 */
+  chasePose(car) {
+    const forward = car.forward;
+    return {
+      position: new THREE.Vector3(
+        car.position.x - forward.x * CAMERA.distance,
+        CAMERA.height,
+        car.position.z - forward.z * CAMERA.distance,
+      ),
+      target: new THREE.Vector3(
+        car.position.x + forward.x * CAMERA.lookAhead,
+        CAMERA.lookHeight,
+        car.position.z + forward.z * CAMERA.lookAhead,
+      ),
+    };
+  }
+
+  showcasePose(car) {
+    const forward = car.forward;
+    const right = car.right;
+    return {
+      position: new THREE.Vector3(
+        car.position.x - forward.x * CAMERA.showcaseBack + right.x * CAMERA.showcaseSide,
+        CAMERA.showcaseHeight,
+        car.position.z - forward.z * CAMERA.showcaseBack + right.z * CAMERA.showcaseSide,
+      ),
+      target: new THREE.Vector3(
+        car.position.x + forward.x * 6,
+        1.5,
+        car.position.z + forward.z * 6,
+      ),
+    };
+  }
+
   /** 直接把相机瞬移到车后（开局 / 重置用，避免镜头飞过去） */
   snapTo(car) {
     this.roll = 0;
     this.sideOffset = 0;
     this.shake = 0;
     this.kick = 0;
-    const forward = car.forward;
-    this.position.set(
-      car.position.x - forward.x * CAMERA.distance,
-      CAMERA.height,
-      car.position.z - forward.z * CAMERA.distance,
-    );
-    this.lookTarget.set(
-      car.position.x + forward.x * CAMERA.lookAhead,
-      CAMERA.lookHeight,
-      car.position.z + forward.z * CAMERA.lookAhead,
-    );
+    const pose = this.chasePose(car);
+    this.position.copy(pose.position);
+    this.lookTarget.copy(pose.target);
     this.apply();
   }
 

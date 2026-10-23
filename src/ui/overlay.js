@@ -1,71 +1,141 @@
 import { RACE } from '../config.js';
 
-/**
- * 开始 / 结束界面。
- * 只负责显示和把用户的点击转成回调，不掺和游戏逻辑。
- *
- * 【为什么全部用 createElement 而不是 innerHTML】结算界面的内容每次都要整块重建，
- * 拼字符串虽然短，但只要以后有人往里塞了用户名、时间戳之类的外部文本，
- * 就是一个 XSS 口子。改用 DOM API 从源头上没有这个问题，也让事件绑定更直接。
- */
+/** 世界画布之上的菜单与对话框；只负责 DOM 和按钮事件。 */
 export class Overlay {
   constructor() {
     this.screen = document.getElementById('screen');
+    this.menu = document.getElementById('menu');
     this.card = document.getElementById('card');
-    /** @type {() => void} */
-    this.onStart = () => {};
-    /** @type {() => void} */
-    this.onRestart = () => {};
-    /** @type {() => void} */
-    this.onClearRecords = () => {};
-    /** 开始界面里显示历史最佳的那一行 */
     this.recordLine = document.getElementById('record-line');
+    this.view = 'menu';
+    this.previousFocus = null;
+    this.onStart = () => {};
+    this.onRestart = () => {};
+    this.onReturn = () => {};
+    this.onPause = () => {};
+    this.onResume = () => {};
+    this.onConfirmReturn = () => {};
+    this.onClearRecords = () => {};
 
-    // 把圈数提示写进开始界面
-    const hint = document.getElementById('laps-hint');
-    if (hint) hint.textContent = String(RACE.laps);
-
-    document.getElementById('btn-start')?.addEventListener('click', () => {
-      this.onStart();
+    document.getElementById('btn-start').addEventListener('click', () => this.onStart());
+    document.getElementById('btn-help').addEventListener('click', () => this.showInstructions());
+    document.getElementById('btn-clear').addEventListener('click', () => this.onClearRecords());
+    document.getElementById('btn-pause').addEventListener('click', () => this.onPause());
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'Escape' && this.view === 'instructions') this.closeInstructions();
     });
-
-    // 事件委托：结算界面每次都会重建，直接给按钮挂监听会在重建后失效，
-    // 委托给一直存在的 card 就没这个问题。
-    this.card?.addEventListener('click', (event) => {
-      if (event.target instanceof Element && event.target.closest('#btn-clear')) {
-        this.onClearRecords();
+    this.card.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const buttons = [...this.card.querySelectorAll('button:not(:disabled)')];
+      if (!buttons.length) return;
+      if (event.shiftKey && document.activeElement === buttons[0]) {
+        event.preventDefault(); buttons.at(-1).focus();
+      } else if (!event.shiftKey && document.activeElement === buttons.at(-1)) {
+        event.preventDefault(); buttons[0].focus();
       }
     });
   }
 
-  hide() { this.screen.classList.add('hidden'); }
+  #button(label, action, className = 'btn') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.textContent = label;
+    button.addEventListener('click', action);
+    return button;
+  }
 
-  /**
-   * 刷新开始界面上的历史最佳文字。
-   * @param {{bestLapTime?:number, bestTotalTime?:number, ghost?:object}|null} record
-   */
+  #dialog(title, children, view) {
+    if (!this.card.contains(document.activeElement)) this.previousFocus = document.activeElement;
+    const heading = document.createElement('h2');
+    heading.id = 'dialog-title';
+    heading.textContent = title;
+    this.card.replaceChildren(heading, ...children);
+    this.view = view;
+    this.menu.classList.add('hidden');
+    this.card.classList.remove('hidden');
+    this.screen.classList.remove('hidden', 'menu-screen');
+    this.screen.classList.toggle('pause-screen', view === 'pause' || view === 'confirm');
+    this.card.querySelector('button')?.focus();
+  }
+
+  showMenu() {
+    this.view = 'menu';
+    this.screen.className = 'menu-screen';
+    this.card.classList.add('hidden');
+    this.menu.classList.remove('hidden');
+    document.getElementById('btn-start').focus();
+  }
+
+  hide() {
+    this.view = 'hidden';
+    this.screen.classList.add('hidden');
+    this.previousFocus = null;
+  }
+
+  showInstructions() {
+    if (this.view !== 'menu') return;
+    const body = document.createElement('div');
+    body.className = 'instructions';
+    const lines = [
+      'W / ↑ 加速 · S / ↓ 刹车、倒车 · A D / ← → 转向',
+      '按住 Shift 甩尾漂移，攒满氮气后松开手刹即可加速。',
+      `收集金币、冲过加速带，跑完 ${RACE.laps} 圈！`,
+      'R 回到赛道 · M 开关音效 · ESC 暂停游戏',
+    ];
+    for (const text of lines) {
+      const p = document.createElement('p');
+      p.textContent = text;
+      body.append(p);
+    }
+    this.#dialog('玩法说明', [body, this.#button('返回主界面', () => this.showMenu())], 'instructions');
+  }
+
+  closeInstructions() {
+    if (this.view === 'instructions') this.showMenu();
+  }
+
+  showPause() {
+    this.#dialog('游戏已暂停', [
+      this.#button('继续游戏', () => this.onResume()),
+      this.#button('返回主界面', () => this.showConfirm(), 'btn secondary'),
+    ], 'pause');
+  }
+
+  showConfirm() {
+    if (this.view !== 'pause') return;
+    const warning = document.createElement('p');
+    warning.textContent = '退出后当局进度不保留，确认退出？';
+    this.#dialog('确认退出', [
+      warning,
+      this.#button('取消', () => this.showPause(), 'btn secondary'),
+      this.#button('确认退出', () => this.onConfirmReturn(), 'btn danger'),
+    ], 'confirm');
+  }
+
+  cancelConfirm() {
+    if (this.view === 'confirm') this.showPause();
+  }
+
+  /** @param {{bestLapTime?:number, bestTotalTime?:number, ghost?:object}|null} record */
   setBest(record) {
-    if (!this.recordLine) return;
     if (!record) {
-      this.recordLine.textContent = '还没有记录：跑完一圈就会自动存下来';
+      this.recordLine.textContent = '还没有记录：完成比赛，写下第一笔成绩。';
       return;
     }
     const lap = record.bestLapTime ? `${record.bestLapTime.toFixed(2)}s` : '--';
     const total = record.bestTotalTime ? `${record.bestTotalTime.toFixed(2)}s` : '--';
-    // 幽灵车录的是"整场"：它会和你一起静止起步、跑完全程
-    this.recordLine.textContent = `历史最佳 · 单圈 ${lap} · 总用时 ${total} · 幽灵车全程陪跑`;
+    this.recordLine.textContent = `历史最佳 · 单圈 ${lap} · 总用时 ${total}`;
   }
 
-  /** 完赛结算界面 */
   showFinish({ totalTime, bestLap, coins, previousBestTotal = null, isNewRecord = false }) {
     const stats = document.createElement('div');
     stats.className = 'stats';
-    const items = [
+    for (const [value, label] of [
       [totalTime.toFixed(2), '总用时'],
       [bestLap === null ? '--' : bestLap.toFixed(2), '最佳单圈'],
       [String(coins), '金币'],
-    ];
-    for (const [value, label] of items) {
+    ]) {
       const box = document.createElement('div');
       const number = document.createElement('b');
       number.textContent = value;
@@ -74,38 +144,13 @@ export class Overlay {
       box.append(number, caption);
       stats.append(box);
     }
-
-    const title = document.createElement('h2');
-    title.textContent = '🏁 完 赛 !';
-
     const note = document.createElement('p');
-    if (isNewRecord) {
-      note.className = 'record';
-      note.textContent = '🎉 新 纪 录 ！';
-    } else {
-      note.className = 'dim';
-      const previous = previousBestTotal === null ? '--' : previousBestTotal.toFixed(2);
-      note.textContent = `历史最佳总用时 ${previous}`;
-    }
-
-    const spacer = document.createElement('div');
-    spacer.className = 'spacer';
-
-    const restart = document.createElement('div');
-    restart.className = 'btn';
-    restart.id = 'btn-restart';
-    restart.textContent = '再 来 一 局';
-    restart.addEventListener('click', () => this.onRestart());
-
-    const clearLine = document.createElement('p');
-    clearLine.className = 'dim';
-    const clear = document.createElement('span');
-    clear.className = 'link';
-    clear.id = 'btn-clear';
-    clear.textContent = '清除最佳记录';
-    clearLine.append(clear);
-
-    this.card.replaceChildren(title, stats, note, spacer, restart, clearLine);
-    this.screen.classList.remove('hidden');
+    note.className = isNewRecord ? 'record' : 'dim';
+    note.textContent = isNewRecord ? '🎉 新 纪 录 ！' : `历史最佳总用时 ${previousBestTotal?.toFixed(2) ?? '--'}`;
+    this.#dialog('🏁 完 赛 !', [
+      stats, note,
+      this.#button('再来一局', () => this.onRestart()),
+      this.#button('返回主界面', () => this.onReturn(), 'btn secondary'),
+    ], 'finish');
   }
 }

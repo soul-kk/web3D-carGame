@@ -112,6 +112,11 @@ export const NITRO = {
 
 export const CAMERA = {
   fov: 62,
+  showcaseFov: 67,
+  showcaseSide: 28,
+  showcaseBack: 31,
+  showcaseHeight: 19,
+  transitionSeconds: 1.8,
   fovSpeedGain: 0.26,
   fovBoost: 7,
   distance: 10.5,

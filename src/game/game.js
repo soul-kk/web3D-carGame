@@ -1,4 +1,4 @@
-import { CAR, COLORS, NITRO, RACE } from '../config.js';
+import { CAR, CAMERA, COLORS, NITRO, RACE } from '../config.js';
 import { createEnvironment } from '../world/environment.js';
 import { Coins, BoostPads } from '../world/props.js';
 import { Particles } from '../fx/particles.js';
@@ -72,31 +72,126 @@ export class Game {
     /** 仅手刹释放的氮气时长；加速带不会打开屏幕特效。 */
     this.nitroFxRemaining = 0;
 
+    this.phase = 'menu';
+    this.transition = null;
     this.#bindActions();
     this.resetWorld();
+    this.#showcaseCamera();
+    this.#setDrivingControls(false);
   }
 
   /* ================= 对外接口 ================= */
 
-  /** 开始按钮 → 倒计时 → 开跑 */
+  /** 主菜单 → 观景镜头平滑接入追车镜头 → 倒计时。 */
   start() {
+    if (this.phase !== 'menu') return;
     audio.init();
     audio.resume();
+    this.resetWorld({ snapCamera: false });
+    const destination = this.cameraRig.chasePose(this.car);
+    this.transition = {
+      elapsed: 0,
+      fromPosition: this.cameraRig.camera.position.clone(),
+      fromTarget: this.showcaseTarget.clone(),
+      fromFov: this.cameraRig.camera.fov,
+      ...destination,
+    };
     this.overlay.hide();
-    this.hud.show();
-    this.#beginCountdown();
+    this.phase = 'transitioning';
+    if (this.reducedMotion.matches) this.#updateTransition(CAMERA.transitionSeconds);
   }
 
   /** 完赛后的"再来一局" */
   restart() {
+    if (this.phase !== 'finished') return;
     this.overlay.hide();
     this.hud.show();
     this.#beginCountdown();
+    this.phase = 'playing';
+    this.#setDrivingControls(true);
+  }
+
+  #setDrivingControls(visible) {
+    document.getElementById('btn-pause').classList.toggle('hidden', !visible);
+    if ('ontouchstart' in window) document.getElementById('touch')?.classList.toggle('hidden', !visible);
+  }
+
+  pause() {
+    if (this.phase !== 'playing') return;
+    this.phase = 'paused';
+    document.body.classList.add('game-paused');
+    this.input.clear();
+    this.#setDrivingControls(false);
+    audio.engine(0, 0, false);
+    audio.drift(0, false);
+    this.overlay.showPause();
+  }
+
+  resume() {
+    if (this.phase !== 'paused') return;
+    this.input.clear();
+    this.overlay.hide();
+    document.body.classList.remove('game-paused');
+    this.phase = 'playing';
+    this.#setDrivingControls(true);
+  }
+
+  returnToMenu() {
+    if (this.phase !== 'paused' && this.phase !== 'finished') return;
+    this.input.clear();
+    document.body.classList.remove('game-paused');
+    this.#setDrivingControls(false);
+    audio.engine(0, 0, false);
+    audio.drift(0, false);
+    this.hud.hide();
+    this.resetWorld();
+    this.#showcaseCamera();
+    this.phase = 'menu';
+    this.overlay.showMenu();
+  }
+
+  #showcaseCamera() {
+    const pose = this.cameraRig.showcasePose(this.car);
+    this.showcaseTarget = pose.target;
+    const camera = this.cameraRig.camera;
+    camera.position.copy(pose.position);
+    camera.lookAt(pose.target);
+    camera.fov = CAMERA.showcaseFov;
+    camera.updateProjectionMatrix();
+  }
+
+  #updateTransition(dt) {
+    const t = this.transition;
+    t.elapsed += dt;
+    const progress = Math.min(1, t.elapsed / CAMERA.transitionSeconds);
+    const ease = progress * progress * (3 - 2 * progress);
+    const camera = this.cameraRig.camera;
+    camera.position.lerpVectors(t.fromPosition, t.position, ease);
+    const look = t.fromTarget.clone().lerp(t.target, ease);
+    camera.lookAt(look);
+    camera.fov = t.fromFov + (CAMERA.fov - t.fromFov) * ease;
+    camera.updateProjectionMatrix();
+    if (progress < 1) return;
+    this.cameraRig.position.copy(t.position);
+    this.cameraRig.lookTarget.copy(t.target);
+    this.cameraRig.apply();
+    this.transition = null;
+    this.phase = 'playing';
+    this.hud.show();
+    this.#setDrivingControls(true);
+    this.#beginCountdown(false);
   }
 
   /* ================= 每帧主循环 ================= */
 
   update(dt) {
+    if (this.phase === 'paused' || this.phase === 'finished') return;
+    if (this.phase === 'menu' || this.phase === 'transitioning') {
+      this.environment.update(dt);
+      this.coins.update(dt);
+      if (this.phase === 'transitioning') this.#updateTransition(dt);
+      return;
+    }
     this.#updateCountdown(dt);
 
     const input = this.input.read();
@@ -172,15 +267,27 @@ export class Game {
       this.hud.setSoundEnabled(enabled);
     });
     this.input.on('KeyR', () => {
-      if (this.race.isRacing) this.#respawnOnTrack();
+      if (this.phase === 'playing' && this.race.isRacing) this.#respawnOnTrack();
     });
-    this.input.on('Enter', () => {
-      if (this.race.mode === 'ready') this.start();
-      else if (this.race.mode === 'finished') this.restart();
+    this.input.on('Escape', () => {
+      if (this.phase === 'playing') this.pause();
+      else if (this.phase === 'paused') {
+        if (this.overlay.view === 'confirm') this.overlay.cancelConfirm();
+        else this.resume();
+      }
     });
-    this.input.on('Space', () => {
-      if (this.race.mode === 'ready') this.start();
-      else if (this.race.mode === 'finished') this.restart();
+    this.overlay.onPause = () => this.pause();
+    this.overlay.onResume = () => this.resume();
+    this.overlay.onConfirmReturn = () => this.returnToMenu();
+    this.input.on('Enter', (event) => {
+      if (event.target instanceof Element && event.target.closest('button')) return;
+      if (this.phase === 'menu' && this.overlay.view === 'menu') this.start();
+      else if (this.phase === 'finished') this.restart();
+    });
+    this.input.on('Space', (event) => {
+      if (event.target instanceof Element && event.target.closest('button')) return;
+      if (this.phase === 'menu' && this.overlay.view === 'menu') this.start();
+      else if (this.phase === 'finished') this.restart();
     });
     // 触屏第一次点击时初始化音频（浏览器要求用户手势）
     this.input.onFirstTouch = () => { audio.init(); audio.resume(); };
@@ -199,7 +306,7 @@ export class Game {
   }
 
   /** 回到开局状态（但不开始倒计时） */
-  resetWorld() {
+  resetWorld({ snapCamera = true } = {}) {
     this.race.reset();
     this.coins.reset();
     this.boostPads.reset();
@@ -217,6 +324,7 @@ export class Game {
     // 哪怕还没有幽灵车，看到上一局的圈速也会想再跑一次。
     this.bestRecord = loadBest();
     this.recordAtStart = this.bestRecord;
+    this.pendingBestLap = null;
     this.race.bestLap = this.bestRecord?.bestLapTime ?? null;
     this.recorder.reset();
     this.#loadGhost();
@@ -225,7 +333,7 @@ export class Game {
     const startPoint = this.track.points[START_INDEX];
     const startTangent = this.track.tangents[START_INDEX];
     this.car.placeAt(startPoint, Math.atan2(startTangent.x, startTangent.z), START_INDEX);
-    this.cameraRig.snapTo(this.car);
+    if (snapCamera) this.cameraRig.snapTo(this.car);
     this.#updateSun();
 
     this.hud.setLap(1, this.race.totalLaps);
@@ -248,8 +356,8 @@ export class Game {
     this.hud.setGhost(Boolean(this.ghost));
   }
 
-  #beginCountdown() {
-    this.resetWorld();
+  #beginCountdown(reset = true) {
+    if (reset) this.resetWorld();
     this.race.mode = 'countdown';
     this.countdownLeft = RACE.countdown;
     this.lastCountdownNumber = -1;
@@ -377,7 +485,7 @@ export class Game {
     // 这里只记圈速。幽灵车是"整场"的，得等这一局跑完、
     // 确认刷新了总用时记录，才把整场采样存下来（见 #handleFinish）。
     if (isBest) {
-      this.bestRecord = mergeBest({ bestLapTime: time });
+      this.pendingBestLap = time;
       this.hud.setTimes({ current: 0, best: time, total: this.race.totalTime });
       audio.blip(1200, 0.16, 'triangle', 0.12, 1800);
     }
@@ -397,15 +505,18 @@ export class Game {
     // 和历史最佳比总用时。注意用开跑前的快照，不然会和本局刚刷新的单圈记录比
     const previousBestTotal = this.recordAtStart?.bestTotalTime ?? null;
     const isNewRecord = previousBestTotal === null || summary.totalTime < previousBestTotal;
+    const patch = {};
+    if (this.pendingBestLap !== null) patch.bestLapTime = this.pendingBestLap;
     if (isNewRecord) {
-      // 整场幽灵：录的是从绿灯到终点线的完整一局（含静止起步），
-      // 所以下一局它和你跑的是同一个赛程，从发车就能正面对比。
-      this.bestRecord = mergeBest({
-        bestTotalTime: summary.totalTime,
-        ghost: packGhost(this.recorder.data, summary.totalTime),
-      });
+      // 整场幽灵从绿灯到终点线录制，只有完赛才写盘。
+      patch.bestTotalTime = summary.totalTime;
+      patch.ghost = packGhost(this.recorder.data, summary.totalTime);
     }
-
+    if (Object.keys(patch).length) this.bestRecord = mergeBest(patch);
+    this.phase = 'finished';
+    this.#setDrivingControls(false);
+    audio.engine(0, 0, false);
+    audio.drift(0, false);
     this.hud.clearMessage();
     this.hud.setWrongWay(false);
     this.overlay.showFinish({ ...summary, previousBestTotal, isNewRecord });

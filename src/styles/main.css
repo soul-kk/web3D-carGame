@@ -129,63 +129,56 @@ canvas { display: block; }
 }
 
 /* ============================================================
-   开始 / 结束界面
+   赛道主菜单 / 对话框
    ============================================================ */
-#screen {
-  position: fixed; inset: 0; z-index: 10;
-  display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, .35), rgba(27, 36, 48, .75));
-  backdrop-filter: blur(3px);
-}
-#screen.hidden { display: none; }
-
-.card {
-  max-width: 560px; padding: 34px 46px; text-align: center;
-  background: #fffdf7; border: 5px solid #1b2430; border-radius: 26px;
-  box-shadow: 10px 10px 0 rgba(27, 36, 48, .9);
-}
-.card h1 {
-  margin-bottom: 6px; font-size: 42px; letter-spacing: 2px; color: #ff4d5a;
-  text-shadow: 3px 3px 0 #1b2430;
-}
-.card h2 {
-  margin-bottom: 14px; font-size: 30px; color: #ff9f1c;
-  text-shadow: 2px 2px 0 #1b2430;
-}
-.card p { margin-bottom: 8px; font-size: 15px; line-height: 1.9; color: #33404f; }
+#screen { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; }
+#screen.menu-screen { place-items: center start; background: linear-gradient(90deg, rgba(19, 32, 45, .86), rgba(19, 32, 45, .45) 47%, transparent 85%); }
+#screen.pause-screen { background: rgba(19, 32, 45, .45); backdrop-filter: blur(9px); }
+.game-paused #hud *, .game-paused #touch * { animation-play-state: paused; }
+#screen:not(.menu-screen):not(.pause-screen) { background: rgba(19, 32, 45, .45); backdrop-filter: blur(3px); }
+.menu { width: min(410px, 100%); margin-left: clamp(8px, 5vw, 100px); color: #fffdf7; }
+.eyebrow { font-size: 12px; font-weight: 900; letter-spacing: .25em; color: #ffd166; }
+.menu-heading h1 { margin: 12px 0; font-size: clamp(44px, 6vw, 78px); line-height: 1; text-shadow: 5px 5px 0 #1b2430; }
+.menu-heading p { margin-bottom: 32px; font-size: 17px; font-weight: 700; }
+.menu-actions { display: grid; gap: 10px; }
+.menu-button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px 20px; border: 3px solid #1b2430; border-radius: 12px; background: #fffdf7; color: #1b2430; box-shadow: 5px 5px 0 #1b2430; font: inherit; font-size: 19px; font-weight: 900; cursor: pointer; text-align: left; transition: transform .15s, box-shadow .15s; }
+.menu-button:not(:disabled):hover { transform: translate(3px, 3px); box-shadow: 2px 2px 0 #1b2430; }
+.menu-button.primary { background: #ffd166; font-size: 24px; }
+.menu-button.unavailable { opacity: .68; cursor: not-allowed; }
+.menu-button small { font-size: 11px; font-weight: 700; }
+.menu-record { margin: 22px 0 4px; font-size: 13px; line-height: 1.6; }
+.text-button { padding: 5px 0; border: 0; background: none; color: #fffdf7; text-decoration: underline; font: inherit; font-size: 13px; cursor: pointer; }
+.card { width: min(520px, 100%); max-height: min(90vh, 700px); overflow: auto; padding: 30px; text-align: center; background: #fffdf7; border: 5px solid #1b2430; border-radius: 24px; box-shadow: 9px 9px 0 rgba(27, 36, 48, .9); }
+.card h2 { margin-bottom: 18px; font-size: 32px; color: #ff9f1c; text-shadow: 2px 2px 0 #1b2430; }
+.card p { margin: 8px 0 20px; font-size: 16px; line-height: 1.65; color: #33404f; }
 .card p.dim { opacity: .6; }
-.spacer { height: 18px; }
-
-.keys { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 14px 0 18px; }
-
-kbd {
-  padding: 5px 11px; border-radius: 8px;
-  background: #1b2430; color: #fff;
-  font-family: inherit; font-size: 14px; font-weight: 700;
-  box-shadow: 0 3px 0 #000;
-}
-
-.btn {
-  display: inline-block; padding: 12px 34px;
-  pointer-events: auto; cursor: pointer;
-  background: #ffd166; border: 4px solid #1b2430; border-radius: 14px;
-  color: #1b2430; font-size: 20px; font-weight: 900;
-  box-shadow: 5px 5px 0 rgba(27, 36, 48, .9);
-  transition: transform .07s, box-shadow .07s;
-}
-.btn:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 rgba(27, 36, 48, .9); }
-
-.stats { display: flex; gap: 26px; justify-content: center; margin: 18px 0 4px; }
+.instructions { margin-bottom: 20px; text-align: left; }
+.instructions p { margin: 10px 0; }
+.btn { display: inline-block; margin: 5px; padding: 11px 22px; cursor: pointer; background: #ffd166; border: 3px solid #1b2430; border-radius: 12px; color: #1b2430; font: inherit; font-size: 18px; font-weight: 900; box-shadow: 4px 4px 0 #1b2430; transition: transform .1s; }
+.btn:hover { transform: translate(2px, 2px); }
+.btn.secondary { background: #fff; }
+.btn.danger { background: #ff7779; }
+button:focus-visible, .card:focus-visible { outline: 3px solid #19c6ff; outline-offset: 4px; }
+.stats { display: flex; gap: 26px; justify-content: center; margin: 18px 0; }
 .stats div { text-align: center; }
 .stats b { display: block; font-size: 26px; color: #1b2430; font-variant-numeric: tabular-nums; }
 .stats span { font-size: 12px; opacity: .6; }
-
-.record { font-size: 17px; font-weight: 900; color: #ff9f1c; }
-.link {
-  text-decoration: underline; cursor: pointer; pointer-events: auto;
-  font-size: 13px;
+.record { font-weight: 900; color: #ff9f1c; }
+#btn-pause { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 6; padding: 8px 16px; border: 3px solid #1b2430; border-radius: 12px; background: #ffd166; font: inherit; font-weight: 900; cursor: pointer; }
+@media (max-width: 600px) {
+  #screen.menu-screen { place-items: end center; background: linear-gradient(0deg, rgba(19, 32, 45, .94), rgba(19, 32, 45, .42) 70%, transparent); }
+  .menu { margin: 0 0 12px; width: min(440px, 100%); }
+  .menu-heading h1 { font-size: 42px; margin: 5px 0; }
+  .menu-heading p { margin-bottom: 12px; font-size: 14px; }
+  .menu-actions { gap: 6px; }
+  .menu-button { padding: 7px 14px; font-size: 16px; }
+  .menu-button.primary { font-size: 19px; }
+  .menu-record { margin: 10px 0 0; }
+  .card { padding: 20px; }
+  .card h2 { font-size: 26px; }
 }
-.link:hover { color: #ff4d5a; }
+@media (max-height: 620px) { .menu-heading p { margin-bottom: 8px; } .menu-button { padding-top: 6px; padding-bottom: 6px; } .menu-record { margin-top: 6px; } }
+@media (prefers-reduced-motion: reduce) { .menu-button, .btn { transition: none; } }
 
 /* ============================================================
    移动端虚拟按键

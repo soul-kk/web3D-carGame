@@ -52,17 +52,24 @@ export class Input {
     };
   }
 
+  /** 离开驾驶状态时丢弃按住的方向/油门，恢复时必须重新按下。 */
+  clear() {
+    this.keys = Object.create(null);
+    for (const key of Object.keys(this.touch)) this.touch[key] = false;
+  }
+
   #bindKeyboard() {
     window.addEventListener('keydown', (event) => {
       // 方向键 / 空格默认会滚动页面，挡掉
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)
+        && !(event.target instanceof Element && event.target.closest('button'))) {
         event.preventDefault();
       }
       // 忽略长按产生的重复事件，保证动作键只触发一次
       const alreadyDown = this.keys[event.code];
       this.keys[event.code] = true;
 
-      if (!alreadyDown) {
+      if (!alreadyDown && !event.repeat) {
         for (const handler of this.actions.get(event.code) ?? []) handler(event);
       }
     });

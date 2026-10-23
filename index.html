@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>卡通赛车 · Three.js</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='.9em' font-size='56'%3E🏎️%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
   <!-- 3D 画布挂载点 -->
@@ -39,6 +40,8 @@
     <div id="wrong-way" class="hidden">↩ 逆 行 中</div>
   </div>
 
+  <button id="btn-pause" class="hidden" type="button" aria-label="暂停游戏">Ⅱ 暂停</button>
+
   <!-- ============ 移动端虚拟按键 ============ -->
   <div id="touch" class="hidden">
     <div class="tbtn" id="touch-left">◀</div>
@@ -48,22 +51,21 @@
     <div class="tbtn" id="touch-drift">漂移</div>
   </div>
 
-  <!-- ============ 开始 / 结束界面 ============ -->
-  <div id="screen">
-    <div class="card" id="card">
-      <h1>卡 通 赛 车</h1>
-      <p>Three.js 3D 赛车 Demo</p>
-      <div class="keys">
-        <kbd>W ↑ 加速</kbd><kbd>S ↓ 刹车/倒车</kbd><kbd>A ← 左转</kbd><kbd>D → 右转</kbd><kbd>Shift 手刹漂移</kbd>
-      </div>
-      <p>收集金币 🪙 · 冲过加速带 ⏩ · 跑完 <b id="laps-hint">3</b> 圈</p>
-      <p><b>按住 Shift 甩尾漂移</b>，氮气条攒满后松开手刹就能喷氮气 🚀</p>
-      <p class="dim">按 <kbd>R</kbd> 回到赛道 · <kbd>M</kbd> 开关音效</p>
-      <p class="dim" id="record-line"></p>
-      <div class="spacer"></div>
-      <div class="btn" id="btn-start">开 始 比 赛</div>
-      <p class="dim"><span class="link" id="btn-clear">清除最佳记录</span></p>
-    </div>
+  <!-- ============ 世界之上的主菜单 / 弹窗 / 结算 ============ -->
+  <div id="screen" class="menu-screen">
+    <main class="menu" id="menu" aria-label="游戏主界面">
+      <div class="menu-heading"><span class="eyebrow">TOON RACING · 01</span><h1>卡通赛车</h1><p>驶入弯道，追逐更快的自己。</p></div>
+      <nav class="menu-actions" aria-label="主菜单">
+        <button id="btn-start" type="button" class="menu-button primary">开始游戏 <span>↗</span></button>
+        <button id="btn-help" type="button" class="menu-button">玩法说明 <span>?</span></button>
+        <button type="button" class="menu-button unavailable" disabled>更换地图 <small>敬请期待</small></button>
+        <button type="button" class="menu-button unavailable" disabled>更换车辆 <small>敬请期待</small></button>
+        <button type="button" class="menu-button unavailable" disabled>历史成绩 <small>敬请期待</small></button>
+      </nav>
+      <p class="menu-record" id="record-line"></p>
+      <button type="button" class="text-button" id="btn-clear">清除最佳记录</button>
+    </main>
+    <section id="card" class="card hidden" role="dialog" aria-modal="true" aria-labelledby="dialog-title" tabindex="-1"></section>
   </div>
 
   <script type="module" src="/src/main.js"></script>
