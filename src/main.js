@@ -15,6 +15,7 @@ import { audio } from './game/audio.js';
 import { Hud } from './ui/hud.js';
 import { Minimap } from './ui/minimap.js';
 import { Overlay } from './ui/overlay.js';
+import { loadSkin } from './game/skins.js';
 
 /* 1. 舞台：渲染器 / 场景 / 相机 / 光照 / 天空 */
 const app = createApp(document.getElementById('app'));
@@ -42,12 +43,14 @@ const game = new Game({
   input,
   sunLight: app.sunLight,
   sunDirection: app.sunDirection,
+  skinId: loadSkin(),          // 读取上次选的车
 });
 
 /* 6. 界面按钮 → 游戏流程 */
 overlay.onStart = () => game.start();
 overlay.onRestart = () => game.restart();
 overlay.onReturn = () => game.returnToMenu();
+overlay.onSkinChange = (skinId) => game.setSkin(skinId);
 
 /* 7. 跑起来：每帧「逻辑更新 → 画小地图 → 渲染 3D」 */
 app.start(

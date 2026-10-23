@@ -7,6 +7,7 @@ import { Car } from './car.js';
 import { Race } from './race.js';
 import { ChaseCamera } from './camera.js';
 import { GhostPlayer, GhostRecorder, clearBest, loadBest, mergeBest, packGhost } from './ghost.js';
+import { getSkinById, saveSkin } from './skins.js';
 import { audio } from './audio.js';
 
 /** 出发位置对应的赛道采样点（稍微过起点线一点，方便起步） */
@@ -22,7 +23,7 @@ const START_INDEX = 6;
  * 各个模块互不认识，全部由这里调度；想改玩法，大部分时候只需要改这个文件。
  */
 export class Game {
-  constructor({ scene, camera, track, hud, minimap, overlay, input, sunLight, sunDirection }) {
+  constructor({ scene, camera, track, hud, minimap, overlay, input, sunLight, sunDirection, skinId }) {
     this.scene = scene;
     this.track = track;
     this.hud = hud;
@@ -31,6 +32,8 @@ export class Game {
     this.input = input;
     this.sunLight = sunLight;
     this.sunDirection = sunDirection;
+    /** 当前车辆皮肤 */
+    this.skinId = getSkinById(skinId).id;
 
     /* ---------- 世界 ---------- */
     this.environment = createEnvironment(scene, this.track);
@@ -42,9 +45,10 @@ export class Game {
     this.chargeTier = 0;
 
     /* ---------- 赛车 & 相机 ---------- */
-    this.car = new Car();
+    this.car = new Car({ skinId: this.skinId });
     scene.add(this.car.root);
     this.cameraRig = new ChaseCamera(camera);
+    this.overlay.setSkin(this.skinId);
 
     /* ---------- 幽灵车（历史最佳回放） ---------- */
     /** @type {object|null} localStorage 里的历史最佳 */
@@ -180,6 +184,23 @@ export class Game {
     this.hud.show();
     this.#setDrivingControls(true);
     this.#beginCountdown(false);
+  }
+
+  /**
+   * 换皮肤：换模型、存进 localStorage、幽灵车也跟着换。
+   *
+   * 【为什么幽灵车也要换】幽灵车是"上一局的自己"，两边长得不一样会很奇怪，
+   * 而且换个造型还能顺便提醒玩家：这一局跑的是新座驾。
+   */
+  setSkin(skinId) {
+    const skin = getSkinById(skinId);
+    if (skin.id === this.skinId) return;
+
+    this.skinId = skin.id;
+    this.car.setSkin(skin.id);
+    saveSkin(skin.id);
+    this.overlay.setSkin(skin.id);
+    this.#loadGhost();
   }
 
   /* ================= 每帧主循环 ================= */
@@ -351,7 +372,7 @@ export class Game {
 
     const record = this.bestRecord?.ghost;
     if (record && Array.isArray(record.data) && record.data.length >= 6) {
-      this.ghost = new GhostPlayer(this.scene, record);
+      this.ghost = new GhostPlayer(this.scene, record, this.skinId);
     }
     this.hud.setGhost(Boolean(this.ghost));
   }

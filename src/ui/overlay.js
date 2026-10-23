@@ -1,4 +1,5 @@
 import { RACE } from '../config.js';
+import { SKINS } from '../game/skins.js';
 
 /** 世界画布之上的菜单与对话框；只负责 DOM 和按钮事件。 */
 export class Overlay {
@@ -16,6 +17,11 @@ export class Overlay {
     this.onResume = () => {};
     this.onConfirmReturn = () => {};
     this.onClearRecords = () => {};
+    this.onSkinChange = () => {};
+
+    this.skinButtons = new Map();
+    this.skinList = this.#buildSkinPicker();
+    this.menu.querySelector('.menu-actions').insertBefore(this.skinList, document.getElementById('btn-help').nextSibling);
 
     document.getElementById('btn-start').addEventListener('click', () => this.onStart());
     document.getElementById('btn-help').addEventListener('click', () => this.showInstructions());
@@ -34,6 +40,55 @@ export class Overlay {
         event.preventDefault(); buttons[0].focus();
       }
     });
+  }
+
+  /** 造出"选座驾"这一排按钮 */
+  #buildSkinPicker() {
+    const list = document.createElement('div');
+    list.className = 'skins';
+
+    const label = document.createElement('div');
+    label.className = 'skins-label';
+    label.textContent = '选 座 驾';
+
+    const row = document.createElement('div');
+    row.className = 'skins-row';
+
+    for (const skin of SKINS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'skin-btn';
+      button.dataset.skin = skin.id;
+      button.title = skin.description;
+
+      const icon = document.createElement('span');
+      icon.className = 'skin-icon';
+      icon.textContent = skin.icon;
+
+      const name = document.createElement('span');
+      name.className = 'skin-name';
+      name.textContent = skin.name;
+
+      button.append(icon, name);
+      button.addEventListener('click', () => this.onSkinChange(skin.id));
+
+      row.append(button);
+      this.skinButtons.set(skin.id, button);
+    }
+
+    list.append(label, row);
+    return list;
+  }
+
+  /**
+   * 高亮当前选中的皮肤。
+   * @param {string} skinId
+   */
+  setSkin(skinId) {
+    for (const [id, button] of this.skinButtons) {
+      button.classList.toggle('active', id === skinId);
+      button.setAttribute('aria-pressed', String(id === skinId));
+    }
   }
 
   #button(label, action, className = 'btn') {
@@ -60,6 +115,7 @@ export class Overlay {
   }
 
   showMenu() {
+    this.menu.querySelector('.menu-actions').insertBefore(this.skinList, document.getElementById('btn-help').nextSibling);
     this.view = 'menu';
     this.screen.className = 'menu-screen';
     this.card.classList.add('hidden');
@@ -149,6 +205,7 @@ export class Overlay {
     note.textContent = isNewRecord ? '🎉 新 纪 录 ！' : `历史最佳总用时 ${previousBestTotal?.toFixed(2) ?? '--'}`;
     this.#dialog('🏁 完 赛 !', [
       stats, note,
+      this.skinList,
       this.#button('再来一局', () => this.onRestart()),
       this.#button('返回主界面', () => this.onReturn(), 'btn secondary'),
     ], 'finish');
