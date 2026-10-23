@@ -141,8 +141,9 @@ export class GhostPlayer {
   /**
    * @param {THREE.Scene} scene
    * @param {{hz:number, totalTime:number, data:number[]}} record
+   * @param {string} [skinId] 和玩家车用同一套外观
    */
-  constructor(scene, record) {
+  constructor(scene, record, skinId) {
     this.scene = scene;
     this.record = record;
     this.frameCount = Math.floor(record.data.length / 3);
@@ -150,7 +151,7 @@ export class GhostPlayer {
     this.finished = true;
     this.wheelSpin = 0;
 
-    this.model = createCarModel({ ghost: true });
+    this.model = createCarModel({ ghost: true, skinId });
     this.model.root.visible = false;
     scene.add(this.model.root);
 

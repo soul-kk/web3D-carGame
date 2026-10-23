@@ -188,6 +188,30 @@ kbd {
 .link:hover { color: #ff4d5a; }
 
 /* ============================================================
+   皮肤选择器
+   ============================================================ */
+.skins { margin: 4px 0 2px; }
+.skins-label {
+  margin-bottom: 8px; font-size: 13px; font-weight: 900;
+  letter-spacing: 3px; color: #1b2430; opacity: .55;
+}
+.skins-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+.skin-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; cursor: pointer;
+  background: #ffffff; border: 3px solid #1b2430; border-radius: 14px;
+  color: #1b2430; font-family: inherit; font-size: 15px; font-weight: 800;
+  box-shadow: 3px 3px 0 rgba(27, 36, 48, .35);
+  transition: transform .07s, box-shadow .07s, background .12s;
+}
+.skin-btn:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(27, 36, 48, .35); }
+.skin-btn.active {
+  background: #ffd166; box-shadow: 3px 3px 0 rgba(27, 36, 48, .9);
+}
+.skin-icon { font-size: 22px; line-height: 1; }
+
+/* ============================================================
    移动端虚拟按键
    ============================================================ */
 #touch { position: fixed; inset: 0; z-index: 5; pointer-events: none; }

@@ -1,4 +1,5 @@
 import { RACE } from '../config.js';
+import { SKINS } from '../game/skins.js';
 
 /**
  * 开始 / 结束界面。
@@ -18,12 +19,21 @@ export class Overlay {
     this.onRestart = () => {};
     /** @type {() => void} */
     this.onClearRecords = () => {};
+    /** @type {(skinId: string) => void} */
+    this.onSkinChange = () => {};
     /** 开始界面里显示历史最佳的那一行 */
     this.recordLine = document.getElementById('record-line');
 
     // 把圈数提示写进开始界面
     const hint = document.getElementById('laps-hint');
     if (hint) hint.textContent = String(RACE.laps);
+
+    // 皮肤选择器：自己建 DOM，插在"开始比赛"按钮前面
+    this.skinButtons = new Map();
+    this.skinList = this.#buildSkinPicker();
+    const startButton = document.getElementById('btn-start');
+    if (startButton) this.card?.insertBefore(this.skinList, startButton);
+    else this.card?.append(this.skinList);
 
     document.getElementById('btn-start')?.addEventListener('click', () => {
       this.onStart();
@@ -36,6 +46,54 @@ export class Overlay {
         this.onClearRecords();
       }
     });
+  }
+
+  /** 造出"选座驾"这一排按钮 */
+  #buildSkinPicker() {
+    const list = document.createElement('div');
+    list.className = 'skins';
+
+    const label = document.createElement('div');
+    label.className = 'skins-label';
+    label.textContent = '选 座 驾';
+
+    const row = document.createElement('div');
+    row.className = 'skins-row';
+
+    for (const skin of SKINS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'skin-btn';
+      button.dataset.skin = skin.id;
+      button.title = skin.description;
+
+      const icon = document.createElement('span');
+      icon.className = 'skin-icon';
+      icon.textContent = skin.icon;
+
+      const name = document.createElement('span');
+      name.className = 'skin-name';
+      name.textContent = skin.name;
+
+      button.append(icon, name);
+      button.addEventListener('click', () => this.onSkinChange(skin.id));
+
+      row.append(button);
+      this.skinButtons.set(skin.id, button);
+    }
+
+    list.append(label, row);
+    return list;
+  }
+
+  /**
+   * 高亮当前选中的皮肤。
+   * @param {string} skinId
+   */
+  setSkin(skinId) {
+    for (const [id, button] of this.skinButtons) {
+      button.classList.toggle('active', id === skinId);
+    }
   }
 
   hide() { this.screen.classList.add('hidden'); }
@@ -105,7 +163,8 @@ export class Overlay {
     clear.textContent = '清除最佳记录';
     clearLine.append(clear);
 
-    this.card.replaceChildren(title, stats, note, spacer, restart, clearLine);
+    // 把皮肤选择器一起放回结算界面：赛完一局正好换辆车再战
+    this.card.replaceChildren(title, stats, note, spacer, this.skinList, restart, clearLine);
     this.screen.classList.remove('hidden');
   }
 }

@@ -11,6 +11,7 @@
  *
  * 统一加前缀是为了不和同域下的其它页面抢 key。
  */
+
 const PREFIX = 'toon-racing:';
 
 /**
@@ -29,6 +30,8 @@ export function readJson(key, fallback = null) {
 
 /**
  * 写一个 JSON 值。
+ * @param {string} key
+ * @param {any} value
  * @returns {boolean} 是否写入成功（失败只影响"下次能不能看到记录"）
  */
 export function writeJson(key, value) {
@@ -40,6 +43,7 @@ export function writeJson(key, value) {
   }
 }
 
+/** 删掉一个 key */
 export function removeKey(key) {
   try {
     window.localStorage.removeItem(PREFIX + key);
