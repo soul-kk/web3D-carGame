@@ -182,28 +182,91 @@ button:focus-visible, .card:focus-visible { outline: 3px solid #19c6ff; outline-
 
 /* ============================================================
    皮肤选择器
+   ============================================================
+   【为什么不直接套 .menu-button】
+   皮肤按钮要同时放图标 + 名字 + 说明，横排会把文字挤成一团。
+   但"哪个被选中"必须和首页说得清，所以沿用首页的三件套：
+   3px 描边 + 硬阴影 + 选中变黄。
    ============================================================ */
-.skins { margin: 4px 0 2px; }
-.skins-label { margin-bottom: 6px; font-size: 13px; font-weight: 900; letter-spacing: 3px; color: #1b2430; opacity: .65; }
-.menu .skins-label { color: #fffdf7; opacity: 1; }
-.skins-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.menu .skins-row { justify-content: flex-start; }
+.skins { margin: 6px 0 18px; }
+.skins-label { margin-bottom: 10px; font-size: 12px; font-weight: 900; letter-spacing: 3px; color: #1b2430; opacity: .6; }
+.skins-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 
 .skin-btn {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 12px; cursor: pointer;
-  background: #ffffff; border: 3px solid #1b2430; border-radius: 14px;
-  color: #1b2430; font-family: inherit; font-size: 15px; font-weight: 800;
-  box-shadow: 3px 3px 0 rgba(27, 36, 48, .35);
-  transition: transform .07s, box-shadow .07s, background .12s;
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 12px 14px; cursor: pointer;
+  background: #fff; border: 3px solid #1b2430; border-radius: 12px;
+  color: #1b2430; font-family: inherit;
+  box-shadow: 5px 5px 0 #1b2430;
+  transition: transform .15s, box-shadow .15s, background .12s;
 }
-.skin-btn:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(27, 36, 48, .35); }
-.skin-btn.active {
-  background: #ffd166; box-shadow: 3px 3px 0 rgba(27, 36, 48, .9);
-}
+.skin-btn:hover { transform: translate(3px, 3px); box-shadow: 2px 2px 0 #1b2430; }
+.skin-btn.active { background: #ffd166; }
 .skin-btn:focus-visible { outline: 3px solid #19c6ff; outline-offset: 3px; }
-.skin-icon { font-size: 22px; line-height: 1; }
+/* 选中标记：给一个明确的视觉锚点，不用只靠底色区分 */
+.skin-btn.active::after { content: '✓'; margin-left: auto; font-size: 17px; font-weight: 900; }
+
+.skin-icon { flex: none; font-size: 28px; line-height: 1; }
+.skin-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.skin-name { font-size: 17px; font-weight: 900; line-height: 1.2; }
+.skin-desc { font-size: 12px; font-weight: 700; line-height: 1.3; opacity: .6; }
+
+/* 选择类弹窗（换座驾 / 换地图）靠左，右边留给展示中的车和赛道
+   【为什么要多写两个 :not()】通用规则 #screen:not(.menu-screen):not(.pause-screen)
+   的特指度更高，这里必须显式压过它，否则整块屏幕会被蒙上灰、还带模糊。 */
+#screen.choice-screen:not(.menu-screen):not(.pause-screen) {
+  place-items: center start;
+  background: linear-gradient(90deg, rgba(19, 32, 45, .86), rgba(19, 32, 45, .45) 47%, transparent 85%);
+  backdrop-filter: none;
+}
+.card.choice-card { margin-left: clamp(8px, 5vw, 100px); }
+
+@media (max-width: 600px) {
+  #screen.choice-screen:not(.menu-screen):not(.pause-screen) { place-items: end center; background: linear-gradient(0deg, rgba(19, 32, 45, .94), rgba(19, 32, 45, .42) 70%, transparent); }
+  .card.choice-card { margin-left: 0; }
+  .skins-row { gap: 8px; }
+  .skin-btn { padding: 9px 10px; gap: 8px; }
+  .skin-icon { font-size: 22px; }
+  .skin-name { font-size: 15px; }
+  .skin-desc { font-size: 11px; }
+}
 @media (max-height: 700px) { .menu { max-height: calc(100dvh - 40px); overflow-y: auto; padding: 4px 8px 8px 4px; } }
+
+/* ============================================================
+   子弹时间（断桥飞跃）
+   ============================================================ */
+#hud.slowmo::before,
+#hud.slowmo::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 11vh;
+  background: #0b0b10;
+  z-index: 1;
+  pointer-events: none;
+  animation: letterbox .22s ease-out;
+}
+#hud.slowmo::before { top: 0; }
+#hud.slowmo::after { bottom: 0; }
+#hud.slowmo { animation: slowmo-tint .3s ease-out; }
+/* HUD 面板浮在黑边之上，不然速度表会被压住 */
+#hud.slowmo .panel,
+#hud.slowmo #speedo,
+#hud.slowmo #nitro,
+#hud.slowmo #messages { z-index: 2; }
+@keyframes letterbox {
+  from { height: 0; }
+  to { height: 11vh; }
+}
+@keyframes slowmo-tint {
+  from { filter: saturate(.5); }
+  to { filter: saturate(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #hud.slowmo::before, #hud.slowmo::after { animation: none; height: 8vh; }
+  #hud.slowmo { animation: none; }
+}
 
 /* ============================================================
    移动端虚拟按键

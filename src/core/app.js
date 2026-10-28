@@ -30,7 +30,8 @@ export function createApp(container) {
   camera.position.set(0, 8, -16);
 
   /* ---------- 光照 ---------- */
-  scene.add(new THREE.HemisphereLight(0xdff1ff, 0x5a8f3c, 1.05));
+  const hemisphere = new THREE.HemisphereLight(0xdff1ff, 0x5a8f3c, 1.05);
+  scene.add(hemisphere);
 
   const sunDirection = new THREE.Vector3(...WORLD.sunDirection).normalize();
   const sunLight = new THREE.DirectionalLight(0xfff4d6, 1.9);
@@ -49,7 +50,7 @@ export function createApp(container) {
   scene.add(sunLight, sunLight.target);
 
   /* ---------- 天空 & 太阳 ---------- */
-  buildSky(scene, sunDirection);
+  const sky = buildSky(scene, sunDirection);
 
   /* ---------- 自适应窗口 ---------- */
   function handleResize() {
@@ -59,7 +60,6 @@ export function createApp(container) {
   }
   window.addEventListener('resize', handleResize);
 
-  /* ---------- 主循环 ---------- */
   const clock = new THREE.Clock();
 
   /**
@@ -76,7 +76,25 @@ export function createApp(container) {
     });
   }
 
-  return { renderer, scene, camera, sunLight, sunDirection, start };
+  /**
+   * 换地图时换掉整套配色：雾、天空、太阳、半球光。
+   * @param {object} theme 地图主题
+   */
+  function setTheme(theme) {
+    scene.fog.color.setHex(theme.fog.color);
+    scene.fog.near = theme.fog.near;
+    scene.fog.far = theme.fog.far;
+
+    sky.skyMaterial.uniforms.topColor.value.setHex(theme.skyTop);
+    sky.skyMaterial.uniforms.bottomColor.value.setHex(theme.skyBottom);
+    sky.sun.material.color.setHex(theme.cloud);
+
+    hemisphere.color.setHex(theme.hemiSky);
+    hemisphere.groundColor.setHex(theme.hemiGround);
+    sunLight.color.setHex(theme.sun);
+  }
+
+  return { renderer, scene, camera, sunLight, sunDirection, start, setTheme };
 }
 
 /* ------------------------------------------------------------------ */
@@ -126,4 +144,6 @@ function buildSky(scene, sunDirection) {
   glow.position.copy(sun.position);
 
   scene.add(sun, glow);
+
+  return { sky, skyMaterial, sun, glow };
 }

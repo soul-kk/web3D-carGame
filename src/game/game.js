@@ -1,4 +1,4 @@
-import { CAR, CAMERA, COLORS, NITRO, RACE } from '../config.js';
+import { CAR, CAMERA, COLORS, NITRO, RACE, TIME } from '../config.js';
 import { createEnvironment } from '../world/environment.js';
 import { Coins, BoostPads } from '../world/props.js';
 import { Particles } from '../fx/particles.js';
@@ -8,6 +8,7 @@ import { Race } from './race.js';
 import { ChaseCamera } from './camera.js';
 import { GhostPlayer, GhostRecorder, clearBest, loadBest, mergeBest, packGhost } from './ghost.js';
 import { getSkinById, saveSkin } from './skins.js';
+import { getMapById, saveMap } from '../world/maps.js';
 import { audio } from './audio.js';
 
 /** 出发位置对应的赛道采样点（稍微过起点线一点，方便起步） */
@@ -23,7 +24,7 @@ const START_INDEX = 6;
  * 各个模块互不认识，全部由这里调度；想改玩法，大部分时候只需要改这个文件。
  */
 export class Game {
-  constructor({ scene, camera, track, hud, minimap, overlay, input, sunLight, sunDirection, skinId }) {
+  constructor({ scene, camera, track, hud, minimap, overlay, input, sunLight, sunDirection, skinId, map, onThemeChange }) {
     this.scene = scene;
     this.track = track;
     this.hud = hud;
@@ -34,11 +35,20 @@ export class Game {
     this.sunDirection = sunDirection;
     /** 当前车辆皮肤 */
     this.skinId = getSkinById(skinId).id;
+    /** 当前地图（形状 + 主题 + 配乐） */
+    this.map = map;
+    /** 换地图时通知外部换掉天空 / 雾 / 光照配色 */
+    this.onThemeChange = onThemeChange ?? (() => {});
 
     /* ---------- 世界 ---------- */
-    this.environment = createEnvironment(scene, this.track);
-    this.coins = new Coins(scene, this.track);
-    this.boostPads = new BoostPads(scene, this.track);
+    this.environment = createEnvironment(scene, this.track, this.map.theme);
+    // 【为什么这里就要换主题】setTheme 换的是天空 / 雾 / 光照。
+    // 只在 setMap() 里换的话，"上次选的就是熔岩环道"这种启动方式
+    // 会带着草原的天空开火山图 —— 蓝色天空配黑色岩浆地，画面完全不对。
+    // 所以初始这张图的主题也必须在这里换一次。
+    this.onThemeChange(this.map.theme);
+    this.coins = new Coins(scene, this.track, this.map.props?.coins);
+    this.boostPads = new BoostPads(scene, this.track, this.map.props?.boosts);
     this.particles = new Particles(scene, 60);
     this.skidmarks = new Skidmarks(scene);
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -49,10 +59,13 @@ export class Game {
     scene.add(this.car.root);
     this.cameraRig = new ChaseCamera(camera);
     this.overlay.setSkin(this.skinId);
+    // 两台车的引擎声不一样，音效模块要知道现在开的是哪台
+    audio.setVehicle(this.skinId);
+    this.overlay.setMap(this.map.id);
 
     /* ---------- 幽灵车（历史最佳回放） ---------- */
     /** @type {object|null} localStorage 里的历史最佳 */
-    this.bestRecord = loadBest();
+    this.bestRecord = loadBest(this.map.id);
     /** 这一局开跑前的历史最佳，用来判断完赛后是不是"新纪录" */
     this.recordAtStart = this.bestRecord;
     /** @type {GhostPlayer|null} */
@@ -78,6 +91,14 @@ export class Game {
 
     this.phase = 'menu';
     this.transition = null;
+    /** 时间倍率：腾空时进入子弹时间 */
+    this.timeScale = 1;
+    /** 特写镜头的融合程度（0=追尾，1=英雄机位） */
+    this.cinematic = 0;
+    /** 掉下去之前最后一次稳稳站住的位置 */
+    this.safeSpot = null;
+    /** 断桥提示只弹一次 */
+    this.bridgeWarned = false;
     this.#bindActions();
     this.resetWorld();
     this.#showcaseCamera();
@@ -91,6 +112,8 @@ export class Game {
     if (this.phase !== 'menu') return;
     audio.init();
     audio.resume();
+    // 背景音乐：每张地图一首，进了比赛就一直循环
+    audio.playMusic(this.map.song);
     this.resetWorld({ snapCamera: false });
     const destination = this.cameraRig.chasePose(this.car);
     this.transition = {
@@ -128,6 +151,7 @@ export class Game {
     this.#setDrivingControls(false);
     audio.engine(0, 0, false);
     audio.drift(0, false);
+    audio.duckMusic(true);
     this.overlay.showPause();
   }
 
@@ -138,6 +162,7 @@ export class Game {
     document.body.classList.remove('game-paused');
     this.phase = 'playing';
     this.#setDrivingControls(true);
+    audio.duckMusic(false);
   }
 
   returnToMenu() {
@@ -187,6 +212,38 @@ export class Game {
   }
 
   /**
+   * 调试：把车直接放到赛道参数 t 处，并落到对应的路面上。
+   *
+   * 【为什么要有】断桥、上坡这些"只有在一段路上才看得到"的东西，
+   * 从起点跑过去要十几秒，每次调试都干等着很烦。
+   * 配合 URL 参数 `?map=volcano&t=0.75` 就能一步跳到要看的地方。
+   *
+   * @param {number} t 赛道参数 0~1（沿中心线的归一化弧长）
+   */
+  debugPlaceAt(t) {
+    const track = this.track;
+    const tt = ((t % 1) + 1) % 1;
+    const p = track.pointAt(tt);
+    const tan = track.tangentAt(tt);
+    const heading = Math.atan2(tan.x, tan.z);
+    const index = Math.floor(tt * track.count);
+
+    this.car.placeAt(p, heading, index);
+
+    // 落到路面上：桥面上要跟着桥面高度抬起来，不然车会陷在桥板里
+    const surface = track.surfaceAt(tt);
+    if (surface.y !== null) {
+      this.car.y = surface.y;
+      this.car.position.y = surface.y;
+      this.car.vy = 0;
+    }
+
+    // 记住这个落脚点：万一掉下去，重生时回这里而不是回起点
+    this.safeSpot = { x: p.x, z: p.z, heading, index };
+    this.cameraRig.snapTo(this.car);
+  }
+
+  /**
    * 换皮肤：换模型、存进 localStorage、幽灵车也跟着换。
    *
    * 【为什么幽灵车也要换】幽灵车是"上一局的自己"，两边长得不一样会很奇怪，
@@ -200,7 +257,50 @@ export class Game {
     this.car.setSkin(skin.id);
     saveSkin(skin.id);
     this.overlay.setSkin(skin.id);
+    audio.setVehicle(skin.id);
     this.#loadGhost();
+  }
+
+  /**
+   * 换地图：换赛道形状、换配色、换配乐，成绩和幽灵车也按地图分开记。
+   *
+   * 【为什么要整套重建】赛道几何、地面装饰、道具位置全是按地图生成的，
+   * 局部改一个数字很容易留下"上一张地图的残影"（比如草地还是绿的）。
+   * 所以这里整块重来一遍：赛道 → 环境 → 道具 → 主题 → 相机 → 记录。
+   */
+  setMap(mapId) {
+    const map = getMapById(mapId);
+    if (map.id === this.map.id) return;
+
+    this.map = map;
+    saveMap(map.id);
+
+    // 1. 赛道：几何体、采样点、宽度全换
+    this.track.applyConfig(map);
+    // 2. 环境：草地 / 树 / 山 / 云按新主题重造
+    this.environment.rebuild(this.track, map.theme);
+    // 3. 道具：金币重新撒，加速带重新摆（摆法也是每张地图自己定的）
+    this.coins.setPlan(map.props?.coins);
+    this.boostPads.rebuild(this.track, map.props?.boosts);
+    // 4. 天空 / 雾 / 光照
+    this.onThemeChange(map.theme);
+    // 5. 小地图跟着新赛道重画
+    this.minimap.setTrack(this.track);
+    // 6. 换地图 → 换曲子
+    audio.playMusic(map.song);
+    // 7. 这张地图的成绩和幽灵车单独存
+    this.bestRecord = loadBest(map.id);
+    this.recordAtStart = this.bestRecord;
+    this.overlay.setBest(this.bestRecord);
+    this.overlay.setMap(map.id);
+
+    // 回到起点，一切从头开始
+    this.bridgeWarned = false;
+    this.safeSpot = null;
+    this.timeScale = 1;
+    this.cinematic = 0;
+    this.resetWorld();
+    this.#showcaseCamera();
   }
 
   /* ================= 每帧主循环 ================= */
@@ -210,6 +310,9 @@ export class Game {
     if (this.phase === 'menu' || this.phase === 'transitioning') {
       this.environment.update(dt);
       this.coins.update(dt);
+      // 菜单里车是"展示"状态：飞碟要继续悬浮着，不然看起来是死的
+      this.car.elapsed += dt;
+      this.car.animate?.(this.car.elapsed);
       if (this.phase === 'transitioning') this.#updateTransition(dt);
       return;
     }
@@ -223,50 +326,69 @@ export class Game {
     car.nearestIndex = nearest.index;
     const onTrack = nearest.distance < this.track.halfWidth + 0.8;
     const progress = this.track.progressOf(nearest.index);
+    /** 脚下的路面：高度 + 坡度（断桥用） */
+    const surface = this.track.surfaceAt(nearest.index / this.track.count);
 
-    /* ---------- 2. 车辆物理 ---------- */
-    const carState = car.update(dt, {
+    /* ---------- 2. 子弹时间 ---------- *
+     * 【为什么放在物理之前判断】这一帧用上一帧的"是否腾空"来决定放慢倍数，
+     * 差一帧无所谓，但顺序必须统一 —— 不然物理用的时间和渲染用的时间就不一致了。 */
+    const falling = surface.y === null && car.y < (this.track.bridge?.height ?? 0);
+    const dramatic = car.airborne && !falling;
+    this.timeScale += ((dramatic ? TIME.slowMoScale : 1) - this.timeScale)
+      * Math.min(1, dt * TIME.slowMoLerp);
+    this.cinematic += ((dramatic ? 1 : 0) - this.cinematic) * Math.min(1, dt * 8);
+    this.hud.setSlowMo(this.cinematic > 0.5);
+    // 整个世界都按这个倍率走：物理、动画、计时一起慢，画面才连贯
+    const step = dt * this.timeScale;
+
+    /* ---------- 3. 车辆物理 ---------- */
+    const carState = car.update(step, {
       input,
       canDrive: this.race.canDrive,
       onTrack,
+      surface,
     });
 
-    /* ---------- 3. 和道具交互 ---------- */
+    /* ---------- 4. 断桥：坠落重生 & 落地特效 ---------- */
+    this.#updateBridgeState(nearest.index, surface, step);
+
+    /* ---------- 5. 和道具交互 ---------- */
     this.#handleBoostPads();
     this.#handleCoins();
-    this.#handleNitro(dt, carState);
-    this.#spawnTireSmoke(dt, carState);
-    this.skidmarks.update(dt, car, this.race.canDrive && carState.drifting);
+    this.#handleNitro(step, carState);
+    this.#spawnTireSmoke(step, carState);
+    this.skidmarks.update(step, car, this.race.canDrive && carState.drifting);
 
-    /* ---------- 4. 幽灵车录制 / 回放 ---------- */
-    if (this.race.isRacing) this.recorder.record(dt, car);
-    if (this.race.canDrive) this.ghost?.update(dt);
+    /* ---------- 6. 幽灵车录制 / 回放 ---------- */
+    if (this.race.isRacing) this.recorder.record(step, car);
+    if (this.race.canDrive) this.ghost?.update(step);
 
-    /* ---------- 5. 逆行判定 ---------- */
+    /* ---------- 7. 逆行判定 ---------- */
     const forward = car.forward;
     const wrongWay = this.race.isRacing
       && (nearest.tangent.x * forward.x + nearest.tangent.z * forward.z) < -0.35
       && carState.speed > 4;
 
-    /* ---------- 6. 计时与圈数 ---------- */
-    this.race.update(dt, { progress, wrongWay });
+    /* ---------- 8. 计时与圈数 ---------- */
+    this.race.update(step, { progress, wrongWay });
 
-    /* ---------- 7. 世界动画 ---------- */
-    this.coins.update(dt);
-    this.boostPads.update(dt);
-    this.particles.update(dt);
-    this.environment.update(dt);
+    /* ---------- 9. 世界动画 ---------- */
+    this.coins.update(step);
+    this.boostPads.update(step);
+    this.particles.update(step);
+    this.environment.update(step);
 
-    /* ---------- 7. 相机 / 光照 ---------- */
-    this.cameraRig.update(dt, car, {
+    /* ---------- 10. 相机 / 光照 ---------- */
+    this.cameraRig.update(step, car, {
       drifting: carState.drifting,
       lateralSpeed: carState.lateralSpeed,
       reducedMotion: this.reducedMotion.matches,
+      cinematic: this.cinematic,
     });
     this.#updateSun();
 
-    /* ---------- 8. UI 与声音 ---------- */
-    this.#updateHud(dt, carState, wrongWay);
+    /* ---------- 11. UI 与声音 ---------- */
+    this.#updateHud(step, carState, wrongWay);
     audio.engine(carState.speed, input.throttle, this.race.isRacing);
     audio.drift(carState.lateralSpeed, this.race.isRacing && carState.drifting);
   }
@@ -281,6 +403,58 @@ export class Game {
   }
 
   /* ================= 内部实现 ================= */
+
+  /**
+   * 断桥相关：接近提示、落地特效、坠落重生。
+   * @param {number} index 当前所在的赛道采样点下标
+   * @param {{y:number|null, slope:number}} surface 脚下的路面
+   * @param {number} step 这一帧的游戏时间（已含子弹时间倍率）
+   */
+  #updateBridgeState(index, surface, step) {
+    const car = this.car;
+
+    // 落地：溅起尘土 + 镜头抖一下，让"落"这个动作有分量
+    if (car.landed) {
+      this.cameraRig.addShake(0.06);
+      for (let i = 0; i < 8; i++) {
+        this.particles.spawn(car.position.x, car.position.y + 0.2, car.position.z, 0xffb066);
+      }
+      audio.blip(180, 0.18, 'sawtooth', 0.1, 90);
+    }
+
+    const bridge = this.track.bridge;
+    if (!bridge) return;
+
+    const gapIndex = bridge.gapFrom * this.track.count;
+    const gapEndIndex = bridge.gapTo * this.track.count;
+
+    // 记录"安全的落脚点"：站在桥面上、且离断口足够远的位置
+    if (!car.airborne && surface.y !== null
+      && (index < gapIndex - 20 || index > gapEndIndex + 20)) {
+      this.safeSpot = { x: car.position.x, z: car.position.z, heading: car.heading, index };
+    }
+
+    // 快到断口了：提醒玩家加速冲过去
+    if (!this.bridgeWarned && index > gapIndex - 80 && index < gapIndex) {
+      this.bridgeWarned = true;
+      this.hud.flashMessage('前方断桥 · 加速冲过去', 46, 1.6);
+    }
+
+    // 掉下去了：拉回上一次站稳的地方
+    if (car.airborne && car.y < CAR.fallLimit) this.#respawnAfterFall();
+  }
+
+  /** 掉进熔岩：拉回桥上，并明确告诉玩家发生了什么 */
+  #respawnAfterFall() {
+    const spot = this.safeSpot;
+    if (!spot) return;
+    this.car.placeAt({ x: spot.x, z: spot.z }, spot.heading, spot.index);
+    this.cameraRig.snapTo(this.car);
+    this.hud.flashMessage('掉下去了！', 64, 1.1);
+    audio.blip(140, 0.3, 'sawtooth', 0.12, 70);
+    this.timeScale = 1;
+    this.cinematic = 0;
+  }
 
   #bindActions() {
     this.input.on('KeyM', () => {
@@ -313,9 +487,9 @@ export class Game {
     // 触屏第一次点击时初始化音频（浏览器要求用户手势）
     this.input.onFirstTouch = () => { audio.init(); audio.resume(); };
 
-    // 开始界面上的"清除记录"（幽灵车也会一起消失）
+    // 开始界面上的"清除记录"（幽灵车也会一起消失）。只清当前这张地图的记录。
     this.overlay.onClearRecords = () => {
-      clearBest();
+      clearBest(this.map.id);
       this.bestRecord = null;
       this.recordAtStart = null;
       this.#loadGhost();
@@ -337,13 +511,19 @@ export class Game {
     this.boostTimer = 0;
     this.nitroFxRemaining = 0;
     this.chargeTier = 0;
+    this.timeScale = 1;
+    this.cinematic = 0;
+    // 断桥提示和落脚点都是"这一局的事"：换局要重置，
+    // 否则第二局开始冲桥时玩家再也等不到那句提醒（这是实测踩到的坑）。
+    this.bridgeWarned = false;
+    this.safeSpot = null;
     this.skidmarks.reset();
     this.hud.resetEffects();
     audio.drift(0, false);
 
     // 重新读一次存档，并把"上一局最佳"作为 HUD 上的目标显示出来 ——
     // 哪怕还没有幽灵车，看到上一局的圈速也会想再跑一次。
-    this.bestRecord = loadBest();
+    this.bestRecord = loadBest(this.map.id);
     this.recordAtStart = this.bestRecord;
     this.pendingBestLap = null;
     this.race.bestLap = this.bestRecord?.bestLapTime ?? null;
@@ -533,7 +713,7 @@ export class Game {
       patch.bestTotalTime = summary.totalTime;
       patch.ghost = packGhost(this.recorder.data, summary.totalTime);
     }
-    if (Object.keys(patch).length) this.bestRecord = mergeBest(patch);
+    if (Object.keys(patch).length) this.bestRecord = mergeBest(patch, this.map.id);
     this.phase = 'finished';
     this.#setDrivingControls(false);
     audio.engine(0, 0, false);

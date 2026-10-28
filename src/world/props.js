@@ -3,13 +3,24 @@ import { COLORS, PROPS, TRACK } from '../config.js';
 import { toon } from '../core/materials.js';
 
 /**
- * 金币：沿赛道随机成串摆放，吃到就记分。
+ * 金币：沿赛道成串摆放，吃到就记分。
  * 金币会自转 + 上下浮动，被吃掉后做一个"放大消失"的小动画。
+ *
+ * 【摆法从哪来】优先用地图自己写的 `props.coins`（哪几串、偏左还是偏右），
+ * 地图没写才退回下面那套随机摆法。随机摆法的问题是每次开局金币位置都不一样，
+ * 玩家永远记不住"哪条线有金币"，也就没有"专门去吃某串"这件事。
  */
 export class Coins {
-  constructor(scene, track) {
+  /**
+   * @param {THREE.Scene} scene
+   * @param {import('./track.js').Track} track
+   * @param {object|null} plan 地图自定义摆法 { runs, count, spacing }
+   */
+  constructor(scene, track, plan = null) {
     this.scene = scene;
     this.track = track;
+    /** 地图自定义摆法；null 表示用随机兜底 */
+    this.plan = plan ?? null;
     this.list = [];
 
     // 圆柱体默认沿 Y 轴躺平，转 90° 让它像硬币一样竖着
@@ -20,29 +31,78 @@ export class Coins {
     this.reset();
   }
 
-  /** 重新随机摆一遍（每局开始时调用） */
+  /** 换地图：换摆法并重新摆一遍 */
+  setPlan(plan) {
+    this.plan = plan ?? null;
+    this.reset();
+  }
+
+  /** 重新摆一遍（每局开始时调用） */
   reset() {
     for (const coin of this.list) this.scene.remove(coin.mesh);
     this.list.length = 0;
 
-    for (let g = 0; g < PROPS.coinGroups; g++) {
-      const startT = Math.random() * 0.96 + 0.02;
-      // 一串金币共用一个横向偏移，排成一条线
-      const offset = (Math.random() * 2 - 1) * 4.2;
+    if (this.plan) this.#placePlanned();
+    else this.#placeRandom();
+  }
 
-      for (let k = 0; k < PROPS.coinsPerGroup; k++) {
-        const t = (startT + k * 0.006) % 1;
+  /** 照地图写的摆法放金币 */
+  #placePlanned() {
+    const { runs = [], count = PROPS.coinsPerRun, spacing = PROPS.coinSpacing } = this.plan;
+    /** 间距用米，换成赛道参数 t 的增量（t 是按弧长均匀的） */
+    const dt = spacing / this.track.totalLength;
+
+    for (const run of runs) {
+      const offset = run.offset ?? 0;
+      for (let k = 0; k < count; k++) {
+        const t = (run.t + k * dt) % 1;
+        const surface = this.track.surfaceAt(t);
+        // 断口正上方没有地面 —— 金币悬在熔岩上方，谁也吃不到，直接不摆
+        if (surface.y === null) continue;
+
         const p = this.track.pointAt(t);
         const n = this.track.normalAt(t);
 
         const mesh = new THREE.Mesh(this.geometry, this.material);
-        mesh.position.set(p.x + n.x * offset, PROPS.coinHeight, p.z + n.z * offset);
+        // 高度要跟着路面走：桥面上的金币必须在桥面上方，不能埋进桥板里
+        mesh.position.set(p.x + n.x * offset, surface.y + PROPS.coinHeight, p.z + n.z * offset);
         mesh.castShadow = true;
         this.scene.add(mesh);
 
         this.list.push({
           mesh,
-          baseY: PROPS.coinHeight,
+          baseY: surface.y + PROPS.coinHeight,
+          spin: Math.random() * Math.PI * 2,
+          alive: true,
+          dyingFor: 0,
+        });
+      }
+    }
+  }
+
+  /** 兜底：沿赛道随机成串摆放 */
+  #placeRandom() {
+    for (let g = 0; g < PROPS.coinRuns; g++) {
+      const startT = Math.random() * 0.96 + 0.02;
+      // 一串金币共用一个横向偏移，排成一条线
+      const offset = (Math.random() * 2 - 1) * 4.2;
+
+      for (let k = 0; k < PROPS.coinsPerRun; k++) {
+        const t = (startT + k * 0.006) % 1;
+        const surface = this.track.surfaceAt(t);
+        if (surface.y === null) continue;
+
+        const p = this.track.pointAt(t);
+        const n = this.track.normalAt(t);
+
+        const mesh = new THREE.Mesh(this.geometry, this.material);
+        mesh.position.set(p.x + n.x * offset, surface.y + PROPS.coinHeight, p.z + n.z * offset);
+        mesh.castShadow = true;
+        this.scene.add(mesh);
+
+        this.list.push({
+          mesh,
+          baseY: surface.y + PROPS.coinHeight,
           spin: Math.random() * Math.PI * 2,
           alive: true,
           dyingFor: 0,
@@ -96,31 +156,70 @@ export class Coins {
 
 /**
  * 加速带：压上去会获得一段"氮气"，速度和加速度都会提升。
+ *
+ * 【摆法从哪来】优先用地图自己写的 `props.boosts`；
+ * 地图没写才退回 `PROPS.boostPadParams` 那几个默认位置。
  */
 export class BoostPads {
-  constructor(scene, track) {
+  /**
+   * @param {THREE.Scene} scene
+   * @param {import('./track.js').Track} track
+   * @param {Array<{t:number, offset?:number}>|null} plan 地图自定义摆法
+   */
+  constructor(scene, track, plan = null) {
     this.scene = scene;
+    this.track = track;
+    this.plan = plan ?? null;
     this.list = [];
 
-    const texture = createPadTexture();
-    const geometry = new THREE.PlaneGeometry(4.4, 6.4);
+    // 几何体和贴图只建一次：换地图时复用，别每次都新建一份把显存漏掉
+    this.geometry = new THREE.PlaneGeometry(4.4, 6.4);
+    this.texture = createPadTexture();
+    this.material = new THREE.MeshBasicMaterial({
+      map: this.texture, transparent: true, opacity: 0.9,
+    });
 
-    for (const t of PROPS.boostPadParams) {
+    this.#place();
+  }
+
+  /** 按当前摆法放加速带 */
+  #place() {
+    const track = this.track;
+    const specs = this.plan ?? PROPS.boostPadParams.map((t) => ({ t, offset: 0 }));
+
+    for (const spec of specs) {
+      const t = spec.t;
+      const surface = track.surfaceAt(t);
+      if (surface.y === null) continue;   // 断口上方没有路面，放不了加速带
+
       const p = track.pointAt(t);
       const tan = track.tangentAt(t);
       const n = track.normalAt(t);
-      const offset = (Math.random() * 2 - 1) * 3.5;
+      const offset = spec.offset ?? 0;
 
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        map: texture, transparent: true, opacity: 0.9,
-      }));
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.rotation.z = Math.atan2(tan.x, tan.z);
-      mesh.position.set(p.x + n.x * offset, TRACK.surfaceY + 0.03, p.z + n.z * offset);
+      const mesh = new THREE.Mesh(this.geometry, this.material);
+      // 抬到中线虚线（虚线顶面在 surfaceY+0.03）之上 0.04：
+      // 两者共面时会在加速带下面闪"z-fighting"，那条虚线还会从带子底下穿出来。
+      mesh.position.set(
+        p.x + n.x * offset,
+        surface.y + TRACK.surfaceY + 0.07,
+        p.z + n.z * offset,
+      );
+      // 加速带要贴着路面：桥坡上也得跟着倾斜，否则会半截插进桥板
+      orientToSurface(mesh, track, t, surface);
 
-      scene.add(mesh);
+      this.scene.add(mesh);
       this.list.push({ mesh, position: mesh.position.clone(), flash: 0 });
     }
+  }
+
+  /** 换地图后按新赛道重摆加速带 */
+  rebuild(track, plan = null) {
+    this.track = track;
+    this.plan = plan ?? null;
+    for (const pad of this.list) this.scene.remove(pad.mesh);
+    this.list.length = 0;
+    this.#place();
   }
 
   reset() {
@@ -150,6 +249,35 @@ export class BoostPads {
     }
     return false;
   }
+}
+
+/**
+ * 把一个"平铺的面"贴到赛道路面上，并让它的长度方向沿着前进方向。
+ *
+ * 【为什么不用 rotation.x / rotation.z】欧拉角要同时表达"转向"和"抬头"，
+ * 顺序一换结果就不对，贴图的前后方向也容易弄反。这里直接搭一个正交基：
+ *   z 轴 = 路面法线（往上）
+ *   y 轴 = 行进方向的反向（贴图的"上"朝着车来的方向，箭头才指向车前方）
+ *   x 轴 = y × z（保证右手系）
+ * 三个轴定死，面的朝向就唯一了，桥坡上也不会插进桥板里。
+ *
+ * @param {THREE.Mesh} mesh 平面网格（PlaneGeometry，法线是局部 +Z）
+ * @param {import('./track.js').Track} track
+ * @param {number} t 赛道参数
+ * @param {{y:number|null, slope:number}} surface 路面高度与坡度
+ */
+function orientToSurface(mesh, track, t, surface) {
+  const tangent = track.tangentAt(t);
+  const lateral = track.normalAt(t);
+  // 路面切线：水平方向不变，叠上坡度 → 桥坡上的行进方向是斜的
+  const direction = new THREE.Vector3(tangent.x, surface.slope, tangent.z).normalize();
+  // 路面法线 = 行进方向 × 横向（平地时正好是"上"）
+  const normal = new THREE.Vector3().crossVectors(direction, lateral).normalize();
+  // 贴图的"上"朝着来车方向，于是贴图上画的箭头指向车前方
+  const backward = direction.clone().negate();
+  const right = new THREE.Vector3().crossVectors(backward, normal).normalize();
+  const matrix = new THREE.Matrix4().makeBasis(right, backward, normal);
+  mesh.quaternion.setFromRotationMatrix(matrix);
 }
 
 function createPadTexture() {

@@ -230,6 +230,16 @@ export class Car {
 
     /** 物理位置（直接复用 root.position，y 只用于草地颠簸） */
     this.position = this.root.position;
+    /**
+     * 竖直方向：离地高度与竖直速度。
+     * 平时 y 恒等于路面高度（断桥的桥面是架空的，所以这里会变）。
+     */
+    this.y = 0;
+    this.vy = 0;
+    /** 是否在空中（腾空时进入子弹时间 + 特写镜头） */
+    this.airborne = false;
+    /** 这一帧刚刚落地（用来触发落地特效） */
+    this.landed = false;
     /** 速度向量，x → 世界 X，y → 世界 Z */
     this.velocity = new THREE.Vector2();
     /** 朝向角（弧度）：forward = (sin, 0, cos) */
@@ -276,6 +286,9 @@ export class Car {
     this.handbrake = false;
     this.drifting = false;
     this.driftCharge = 0;
+    this.y = 0;
+    this.vy = 0;
+    this.airborne = false;
     this.root.rotation.y = heading;
     this.#updateVisuals(0, 0, 0, { throttle: 0, brake: 0, steer: 0 }, true);
   }
@@ -319,10 +332,11 @@ export class Car {
    * @param {{throttle:number,brake:number,steer:number,handbrake:number}} ctx.input 驾驶输入
    * @param {boolean} ctx.canDrive 倒计时 / 完赛时为 false，此时只能滑行
    * @param {boolean} ctx.onTrack 是否在铺装路面上
+   * @param {{y:number|null, slope:number}} ctx.surface 脚下的路面高度与坡度（y=null 表示没有地面）
    * @returns {{forwardSpeed:number, lateralSpeed:number, speed:number,
    *            drifting:boolean, driftCharge:number, nitroFired:boolean}}
    */
-  update(dt, { input, canDrive, onTrack }) {
+  update(dt, { input, canDrive, onTrack, surface }) {
     this.onTrack = onTrack;
 
     // 手刹只在能开车的时候生效（倒计时 / 完赛后按下不产生任何效果）
@@ -383,6 +397,9 @@ export class Car {
     // 6. 漂移充能
     const nitroFired = this.#updateDrift(dt, { canDrive, handbrake, wasHandbrake, vf, vr, onTrack });
 
+    // 7. 竖直方向（断桥飞跃）
+    this.#updateVertical(dt, surface ?? { y: 0, slope: 0 }, vf);
+
     this.#updateVisuals(dt, vf, vr, input, onTrack);
 
     return {
@@ -393,6 +410,47 @@ export class Car {
       driftCharge: this.driftCharge,
       nitroFired,
     };
+  }
+
+  /**
+   * 竖直方向：贴地、上坡、腾空、落地。
+   *
+   * 【为什么"上坡"能有速度】桥的末端有一段翘起的起跳唇。车子贴着它往上冲时，
+   * 路面高度在升高，于是把"水平速度 × 坡度"记成竖直速度。等车冲过唇口
+   * 脚下突然没有地面了，这个竖直速度就把车送上了天 —— 这就是飞跃的全部原理，
+   * 不需要额外的"跳跃键"，加速冲过去就行。
+   *
+   * @param {number} dt
+   * @param {{y:number|null, slope:number}} surface 路面高度（null = 断口，没有地面）
+   * @param {number} forwardSpeed 当前前进速度，用来把坡度换算成上升速度
+   */
+  #updateVertical(dt, surface, forwardSpeed) {
+    const groundY = surface.y;
+    this.landed = false;
+
+    if (groundY === null) {
+      // 脚下是断口：没有地面可站，只能往下掉
+      this.airborne = true;
+      this.vy -= CAR.gravity * dt;
+      this.y += this.vy * dt;
+      return;
+    }
+
+    if (this.airborne) {
+      this.vy -= CAR.gravity * dt;
+      this.y += this.vy * dt;
+      if (this.y <= groundY) {
+        this.y = groundY;
+        this.vy = 0;
+        this.airborne = false;
+        this.landed = true;
+      }
+      return;
+    }
+
+    // 贴地：高度跟着路面走，并把坡度换算成竖直速度（起跳唇靠它把车抛起来）
+    this.y = groundY;
+    this.vy = surface.slope * Math.abs(forwardSpeed);
   }
 
   /**
@@ -441,10 +499,10 @@ export class Car {
       -0.08, 0.08,
     );
 
-    // 草地上颠一颠
-    this.position.y = onTrack
+    // 草地上颠一颠（桥面上是平的，只有高度）
+    this.position.y = this.y + (onTrack
       ? 0
-      : Math.sin(performance.now() * 0.05) * 0.03 * Math.min(Math.abs(vf) / 20, 1);
+      : Math.sin(performance.now() * 0.05) * 0.03 * Math.min(Math.abs(vf) / 20, 1));
 
     // 车轮：滚动 + 前轮转向
     this.wheelSpin += (vf / CAR.wheelRadius) * dt;

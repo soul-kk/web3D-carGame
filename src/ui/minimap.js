@@ -13,7 +13,14 @@ export class Minimap {
     this.ctx = canvas.getContext('2d');
     this.size = canvas.width;
     this.padding = 12;
+    this.setTrack(track);
+  }
 
+  /**
+   * 换地图后重算缩放和赛道轮廓。
+   * @param {object} track
+   */
+  setTrack(track) {
     // 计算赛道包围盒，把世界坐标缩放到画布内
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (const p of track.points) {

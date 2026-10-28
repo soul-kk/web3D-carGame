@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CAR } from '../config.js';
 import { createCarModel } from './car.js';
 import { readJson, writeJson, removeKey } from '../core/storage.js';
+import { MAPS } from '../world/maps.js';
 
 /**
  * 幽灵车：把"最好的一整场"录下来，下一局用一辆半透明赛车重放。
@@ -27,6 +28,16 @@ import { readJson, writeJson, removeKey } from '../core/storage.js';
 
 /** localStorage 里存历史最佳的 key（storage.js 会再加统一前缀） */
 const BEST_KEY = 'best';
+
+/**
+ * 每张地图的成绩分开存。
+ * 换了赛道之后，两张图的成绩互相比较没有意义（长度、弯道都不一样），
+ * 所以存档 key 里带上地图 id。
+ * @param {string} mapId
+ */
+function bestKey(mapId) {
+  return mapId ? `${BEST_KEY}:${mapId}` : BEST_KEY;
+}
 /**
  * 记录格式版本。
  * v1 存的是"最佳单圈"，v2 改成"整场"（ghost 里从 lapTime 变成 totalTime），
@@ -49,10 +60,11 @@ const HEADING_SCALE = 1000;
 /**
  * 读取历史最佳。
  * 结构：{ version, bestLapTime, bestTotalTime, ghost: { hz, totalTime, data } }
+ * @param {string} [mapId] 地图 id，不传就读旧版（无后缀）的存档
  * @returns {object|null} 没有存档 / 格式不对时返回 null
  */
-export function loadBest() {
-  const record = readJson(BEST_KEY);
+export function loadBest(mapId) {
+  const record = readJson(bestKey(mapId));
   if (!record || record.version !== RECORD_VERSION) return null;
   if (record.ghost && !Array.isArray(record.ghost.data)) return null;
   return record;
@@ -62,17 +74,26 @@ export function loadBest() {
  * 把若干字段合并进历史最佳并写回。
  * 用"合并"而不是"整体覆盖"，这样刷新单圈记录时不会把总时间记录冲掉。
  * @param {object} patch
+ * @param {string} [mapId] 地图 id
  * @returns {object} 合并后的完整记录
  */
-export function mergeBest(patch) {
-  const record = { version: RECORD_VERSION, ...(loadBest() ?? {}), ...patch };
-  writeJson(BEST_KEY, record);
+export function mergeBest(patch, mapId) {
+  const record = { version: RECORD_VERSION, ...(loadBest(mapId) ?? {}), ...patch };
+  writeJson(bestKey(mapId), record);
   return record;
 }
 
-/** 清空历史最佳（连同幽灵车数据） */
-export function clearBest() {
+/**
+ * 清空历史最佳（连同幽灵车数据）。
+ * @param {string} [mapId] 地图 id，不传则清掉所有地图的成绩
+ */
+export function clearBest(mapId) {
+  if (mapId) {
+    removeKey(bestKey(mapId));
+    return;
+  }
   removeKey(BEST_KEY);
+  for (const map of MAPS) removeKey(bestKey(map.id));
 }
 
 /* ================================================================== */

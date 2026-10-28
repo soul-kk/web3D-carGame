@@ -27,6 +27,8 @@ export class ChaseCamera {
     this.roll = 0;
     this.sideOffset = 0;
     this.kick = 0;
+    /** 累计时间，特写机位的绕行动画要用 */
+    this.elapsed = 0;
   }
 
   addShake(amount) {
@@ -42,13 +44,38 @@ export class ChaseCamera {
     return {
       position: new THREE.Vector3(
         car.position.x - forward.x * CAMERA.distance,
-        CAMERA.height,
+        car.position.y + CAMERA.height,
         car.position.z - forward.z * CAMERA.distance,
       ),
       target: new THREE.Vector3(
         car.position.x + forward.x * CAMERA.lookAhead,
-        CAMERA.lookHeight,
+        car.position.y + CAMERA.lookHeight,
         car.position.z + forward.z * CAMERA.lookAhead,
+      ),
+    };
+  }
+
+  /**
+   * 飞跃特写机位。
+   *
+   * 【为什么是侧面低角度】正后方跟拍在腾空时看不出车在往上飞，
+   * 侧面低角度一眼就能看见"车离桥面多高了"—— 高度感才是飞跃的关键信息。
+   * 镜头还会缓慢横移，让画面有电影里那种"绕着英雄转"的感觉。
+   */
+  cinematicPose(car) {
+    const forward = car.forward;
+    const right = car.right;
+    const swing = Math.sin(this.elapsed * 0.9) * 3.2;
+    return {
+      position: new THREE.Vector3(
+        car.position.x - forward.x * CAMERA.cinematicBack + right.x * (CAMERA.cinematicSide + swing),
+        car.position.y + CAMERA.cinematicHeight,
+        car.position.z - forward.z * CAMERA.cinematicBack + right.z * (CAMERA.cinematicSide + swing),
+      ),
+      target: new THREE.Vector3(
+        car.position.x + forward.x * 3,
+        car.position.y + 1.1,
+        car.position.z + forward.z * 3,
       ),
     };
   }
@@ -82,7 +109,8 @@ export class ChaseCamera {
     this.apply();
   }
 
-  update(dt, car, { drifting = false, lateralSpeed = 0, reducedMotion = false } = {}) {
+  update(dt, car, { drifting = false, lateralSpeed = 0, reducedMotion = false, cinematic = 0 } = {}) {
+    this.elapsed += dt;
     const forward = car.forward;
     const speed = car.speed;
     const boosting = car.boost > 0;
@@ -99,18 +127,26 @@ export class ChaseCamera {
     const right = car.right;
     const desired = new THREE.Vector3(
       car.position.x - forward.x * distance + right.x * this.sideOffset,
-      height,
+      car.position.y + height,
       car.position.z - forward.z * distance + right.z * this.sideOffset,
     );
     this.position.lerp(desired, 1 - Math.exp(-CAMERA.followLerp * dt));
-    this.position.y = Math.max(this.position.y, CAMERA.minHeight);   // 别钻到地下
+    this.position.y = Math.max(this.position.y, car.position.y + CAMERA.minHeight);   // 别钻到地下
 
     const look = new THREE.Vector3(
       car.position.x + forward.x * CAMERA.lookAhead,
-      CAMERA.lookHeight,
+      car.position.y + CAMERA.lookHeight,
       car.position.z + forward.z * CAMERA.lookAhead,
     );
     this.lookTarget.lerp(look, 1 - Math.exp(-CAMERA.lookLerp * dt));
+
+    // 腾空时切到特写机位：不是直接换，而是按 cinematic 的比例融过去
+    if (cinematic > 0.001) {
+      const pose = this.cinematicPose(car);
+      const blend = cinematic * (1 - Math.exp(-CAMERA.cinematicLerp * dt));
+      this.position.lerp(pose.position, blend);
+      this.lookTarget.lerp(pose.target, blend);
+    }
 
     this.apply();
     if (!reducedMotion) this.camera.rotateZ(this.roll);
@@ -123,10 +159,11 @@ export class ChaseCamera {
     }
     this.shake = Math.max(0, this.shake - dt * 1.6);
 
-    // 动态 FOV：加速时视野拉开，产生"冲出去"的感觉
-    const targetFov = CAMERA.fov + Math.min(speed, 70) * CAMERA.fovSpeedGain
+    // 动态 FOV：加速时视野拉开，产生"冲出去"的感觉；腾空时收窄成电影感
+    const chaseFov = CAMERA.fov + Math.min(speed, 70) * CAMERA.fovSpeedGain
       + (boosting && !reducedMotion ? CAMERA.fovBoost : 0)
       + (reducedMotion ? 0 : this.kick * 4);
+    const targetFov = chaseFov + (CAMERA.cinematicFov - chaseFov) * cinematic;
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 4);
     this.camera.updateProjectionMatrix();
   }

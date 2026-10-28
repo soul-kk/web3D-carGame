@@ -36,7 +36,7 @@ npm run dev     # 启动开发服务器，浏览器打开终端里显示的 http
 | `空格` / `回车` | 在主界面开始比赛、完赛后再来一局 |
 | `ESC` | 比赛（含倒计时）暂停 / 继续；在退出确认页返回暂停页 |
 
-主界面直接展示当前赛道；点击「开始游戏」后镜头平滑接入赛车视角，随后才开始倒计时。「玩法说明」可查看操作提示；主界面可切换红色赛车或飞碟（会记住选择），「更换地图」「历史成绩」暂为不可点击的占位入口。
+主界面直接展示当前赛道；点击「开始游戏」后镜头平滑接入赛车视角，随后才开始倒计时。「玩法说明」可查看操作提示；主界面可切换红色赛车或飞碟（会记住选择），也可以在「更换地图」里挑选赛道（会记住选择，最佳成绩与幽灵车按地图分别记录）。
 比赛中暂停可选择继续或返回主界面；返回前会二次确认，确认后本局进度不保留。完赛结算可选择再来一局或返回主界面。
 手机或触屏设备在比赛中有虚拟方向键、「漂移」键和顶部「暂停」按钮。
 **游戏记录（最佳单圈 / 最佳总用时 / 幽灵车）只在完赛时写入浏览器 localStorage**；中途退出不会保存当局新成绩。主界面底部可「清除最佳记录」。
@@ -66,6 +66,7 @@ npm run dev     # 启动开发服务器，浏览器打开终端里显示的 http
     │   └── storage.js      # localStorage 安全读写（隐私模式也不报错）
     │
     ├── world/              # 世界层：赛道与静物
+    │   ├── maps.js         # 所有地图：形状 + 主题 + 配乐 + 道具摆法
     │   ├── track.js        # 赛道曲线、路面/路肩/虚线/起跑线、最近点查询
     │   ├── environment.js  # 草地、树木、远山、云
     │   └── props.js        # 金币 / 加速带
@@ -78,7 +79,8 @@ npm run dev     # 启动开发服务器，浏览器打开终端里显示的 http
     │   ├── skins.js        # 车辆皮肤：外观方案 + 选中项持久化
     │   ├── camera.js       # 第三人称追尾相机
     │   ├── input.js        # 键盘 + 触屏 → 统一的驾驶输入
-    │   └── audio.js        # Web Audio 合成音效（无音频文件）
+    │   ├── audio.js        # Web Audio 合成音效（无音频文件）
+    │   └── music.js        # 背景音乐（Web Audio 合成，无音频文件）
     │
     ├── ui/                 # 界面层（纯 DOM / Canvas 2D）
     │   ├── hud.js          # 时速、圈速、金币等文字
@@ -338,6 +340,7 @@ __game.recorder.data.length / 3  // 这一局已经录了多少帧
 
 - 基础概念速查 → [`docs/threejs-basics.md`](docs/threejs-basics.md)
 - 系统学习路线 → [`docs/learning-path.md`](docs/learning-path.md)
+- 地图设计研究（摆位、子弹时间、断崖、地图交互）→ [`docs/map-design.md`](docs/map-design.md)
 - Three.js 官方文档 <https://threejs.org/docs/> · 官方示例 <https://threejs.org/examples/>
 - 官方中文手册 <https://threejs.org/manual/#zh/fundamentals>
 

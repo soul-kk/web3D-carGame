@@ -146,6 +146,7 @@ export class Hud {
   resetEffects() {
     this.burstTimer = 0;
     this.setNitroBoost(false);
+    this.setSlowMo(false);
     this.lastNitroState = null;
   }
 
@@ -154,6 +155,17 @@ export class Hud {
       this.el.wrongWay.classList.toggle('hidden', !active);
       this.lastWrongWay = active;
     }
+  }
+
+  /**
+   * 子弹时间：上下压出黑边，中间留一条"电影画面"。
+   * 单纯的变慢玩家感知不到，配合黑边才有"进入另一个时间"的仪式感。
+   * @param {boolean} active
+   */
+  setSlowMo(active) {
+    if (active === this.slowMo) return;
+    this.slowMo = active;
+    this.root.classList.toggle('slowmo', active);
   }
 
   /** 屏幕中央的大字提示（倒计时、圈数、GO!） */

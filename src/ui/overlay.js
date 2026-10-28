@@ -1,5 +1,6 @@
 import { RACE } from '../config.js';
 import { SKINS } from '../game/skins.js';
+import { MAPS } from '../world/maps.js';
 
 /** 世界画布之上的菜单与对话框；只负责 DOM 和按钮事件。 */
 export class Overlay {
@@ -18,13 +19,19 @@ export class Overlay {
     this.onConfirmReturn = () => {};
     this.onClearRecords = () => {};
     this.onSkinChange = () => {};
+    this.onMapChange = () => {};
 
     this.skinButtons = new Map();
-    this.skinList = this.#buildSkinPicker();
-    this.menu.querySelector('.menu-actions').insertBefore(this.skinList, document.getElementById('btn-help').nextSibling);
+    this.mapButtons = new Map();
+    this.skinList = this.#buildPicker('选 座 驾', SKINS, 'skin', (id) => this.onSkinChange(id), this.skinButtons);
+    this.mapList = this.#buildPicker('选 地 图', MAPS, 'map', (id) => this.onMapChange(id), this.mapButtons);
+    this.skinHint = document.getElementById('btn-skin-current');
+    this.mapHint = document.getElementById('btn-map-current');
 
     document.getElementById('btn-start').addEventListener('click', () => this.onStart());
     document.getElementById('btn-help').addEventListener('click', () => this.showInstructions());
+    document.getElementById('btn-skin').addEventListener('click', () => this.showSkinPicker());
+    document.getElementById('btn-map').addEventListener('click', () => this.showMapPicker());
     document.getElementById('btn-clear').addEventListener('click', () => this.onClearRecords());
     document.getElementById('btn-pause').addEventListener('click', () => this.onPause());
     window.addEventListener('keydown', (event) => {
@@ -42,38 +49,59 @@ export class Overlay {
     });
   }
 
-  /** 造出"选座驾"这一排按钮 */
-  #buildSkinPicker() {
+  /**
+   * 造出一排"选择项"按钮（座驾、地图都用它）。
+   *
+   * 【为什么用同一个组件】这两个选择器长得必须一模一样，
+   * 复制一份 CSS 出来改一处忘一处，界面就慢慢变得不统一了。
+   *
+   * @param {string} labelText 上面那行小标题
+   * @param {Array<{id:string,name:string,description:string,icon:string}>} items 可选项
+   * @param {string} kind 按钮上的 data 属性名（skin / map）
+   * @param {(id:string)=>void} onPick 选中回调
+   * @param {Map<string,HTMLElement>} registry 收集按钮，方便统一高亮
+   * @returns {HTMLElement}
+   */
+  #buildPicker(labelText, items, kind, onPick, registry) {
     const list = document.createElement('div');
     list.className = 'skins';
 
     const label = document.createElement('div');
     label.className = 'skins-label';
-    label.textContent = '选 座 驾';
+    label.textContent = labelText;
 
     const row = document.createElement('div');
     row.className = 'skins-row';
 
-    for (const skin of SKINS) {
+    for (const item of items) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'skin-btn';
-      button.dataset.skin = skin.id;
-      button.title = skin.description;
+      button.dataset[kind] = item.id;
+      button.title = item.description;
 
       const icon = document.createElement('span');
       icon.className = 'skin-icon';
-      icon.textContent = skin.icon;
+      icon.textContent = item.icon;
+
+      // 名字 + 说明竖着排，和首页其它按钮"标题 + 副标题"的排版一致
+      const text = document.createElement('span');
+      text.className = 'skin-text';
 
       const name = document.createElement('span');
       name.className = 'skin-name';
-      name.textContent = skin.name;
+      name.textContent = item.name;
 
-      button.append(icon, name);
-      button.addEventListener('click', () => this.onSkinChange(skin.id));
+      const desc = document.createElement('span');
+      desc.className = 'skin-desc';
+      desc.textContent = item.description;
+
+      text.append(name, desc);
+      button.append(icon, text);
+      button.addEventListener('click', () => onPick(item.id));
 
       row.append(button);
-      this.skinButtons.set(skin.id, button);
+      registry.set(item.id, button);
     }
 
     list.append(label, row);
@@ -85,9 +113,27 @@ export class Overlay {
    * @param {string} skinId
    */
   setSkin(skinId) {
-    for (const [id, button] of this.skinButtons) {
-      button.classList.toggle('active', id === skinId);
-      button.setAttribute('aria-pressed', String(id === skinId));
+    this.#setActive(this.skinButtons, skinId);
+    // 首页"更换皮肤"按钮右侧回显当前座驾，省得再点进去才知道开的是哪台
+    const skin = SKINS.find((item) => item.id === skinId);
+    if (skin && this.skinHint) this.skinHint.textContent = `${skin.icon} ${skin.name}`;
+  }
+
+  /**
+   * 高亮当前选中的地图。
+   * @param {string} mapId
+   */
+  setMap(mapId) {
+    this.#setActive(this.mapButtons, mapId);
+    const map = MAPS.find((item) => item.id === mapId);
+    if (map && this.mapHint) this.mapHint.textContent = `${map.icon} ${map.name}`;
+  }
+
+  /** 统一的高亮处理：选中的加 .active，其余去掉 */
+  #setActive(registry, activeId) {
+    for (const [id, button] of registry) {
+      button.classList.toggle('active', id === activeId);
+      button.setAttribute('aria-pressed', String(id === activeId));
     }
   }
 
@@ -111,11 +157,14 @@ export class Overlay {
     this.card.classList.remove('hidden');
     this.screen.classList.remove('hidden', 'menu-screen');
     this.screen.classList.toggle('pause-screen', view === 'pause' || view === 'confirm');
+    // 选择类弹窗靠左放，右边留给展示中的车 / 赛道，换的时候能直接看到变化
+    const isChoice = view === 'skins' || view === 'maps';
+    this.screen.classList.toggle('choice-screen', isChoice);
+    this.card.classList.toggle('choice-card', isChoice);
     this.card.querySelector('button')?.focus();
   }
 
   showMenu() {
-    this.menu.querySelector('.menu-actions').insertBefore(this.skinList, document.getElementById('btn-help').nextSibling);
     this.view = 'menu';
     this.screen.className = 'menu-screen';
     this.card.classList.add('hidden');
@@ -149,6 +198,30 @@ export class Overlay {
 
   closeInstructions() {
     if (this.view === 'instructions') this.showMenu();
+  }
+
+  /**
+   * 首页"更换皮肤" → 选座驾弹窗。
+   *
+   * 【为什么单独一个弹窗，而不是把按钮直接摆在菜单里】
+   * 菜单里的按钮都是"一按就执行"的动作，加两排皮肤按钮会把首页撑得很长。
+   * 收进弹窗，首页保持干净，选完再回来看车。
+   */
+  showSkinPicker() {
+    if (this.view !== 'menu') return;
+    this.#dialog('更 换 座 驾', [
+      this.skinList,
+      this.#button('返回主界面', () => this.showMenu(), 'btn secondary'),
+    ], 'skins');
+  }
+
+  /** 首页"更换地图" → 选地图弹窗 */
+  showMapPicker() {
+    if (this.view !== 'menu') return;
+    this.#dialog('更 换 地 图', [
+      this.mapList,
+      this.#button('返回主界面', () => this.showMenu(), 'btn secondary'),
+    ], 'maps');
   }
 
   showPause() {
