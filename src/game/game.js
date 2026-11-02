@@ -12,7 +12,7 @@ import { getMapById, saveMap } from '../world/maps.js';
 import { audio } from './audio.js';
 
 /** 出发位置对应的赛道采样点（稍微过起点线一点，方便起步） */
-const START_INDEX = 6;
+const START_INDEX = 0;
 
 /**
  * 游戏主控：把所有模块串起来，并实现"每帧该发生什么"的规则。
@@ -432,12 +432,6 @@ export class Game {
     if (!car.airborne && surface.y !== null
       && (index < gapIndex - 20 || index > gapEndIndex + 20)) {
       this.safeSpot = { x: car.position.x, z: car.position.z, heading: car.heading, index };
-    }
-
-    // 快到断口了：提醒玩家加速冲过去
-    if (!this.bridgeWarned && index > gapIndex - 80 && index < gapIndex) {
-      this.bridgeWarned = true;
-      this.hud.flashMessage('前方断桥 · 加速冲过去', 46, 1.6);
     }
 
     // 掉下去了：拉回上一次站稳的地方

@@ -179,9 +179,10 @@ export class Music {
     this.drumSteps = song.drums.flatMap((bar) => bar.trim().split(/\s+/));
     this.stepIndex = 0;
     this.nextTime = this.ctx.currentTime + 0.08;
-    this.#applyVolume();
-    // 每 25ms 排一次未来 180ms 的音符 —— 定时器抖动不会让节奏抖
+    // 【顺序】先把 timer 挂上，再 applyVolume —— applyVolume 用 timer 判断
+    // "现在有没有在放"，反过来写会把音量永远设成 0（整首曲子没声）。
     this.timer = setInterval(() => this.#schedule(), 25);
+    this.#applyVolume();
   }
 
   stop() {
@@ -189,6 +190,7 @@ export class Music {
     this.timer = null;
     this.songId = null;
     this.song = null;
+    this.#applyVolume();
   }
 
   /**

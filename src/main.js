@@ -77,6 +77,9 @@ overlay.onMapChange = (mapId) => {
   // 换完地图回主界面，让玩家直接看到新赛道长什么样
   overlay.showMenu();
 };
+// 设置里的两条音量滑杆：直接读写 audio 模块（会存盘）
+overlay.getVolumes = () => audio.volumes;
+overlay.onVolumeChange = (kind, value) => audio.setVolume(kind, value);
 
 /* 7. 跑起来：每帧「逻辑更新 → 画小地图 → 渲染 3D」 */
 app.start(
@@ -86,6 +89,8 @@ app.start(
 
 // 方便在浏览器控制台里调试，例如：__game.car.velocity.length()
 window.__game = game;
+// 音频实例也挂出来：调音量 / 查当前曲子时不用再 import 一次（HMR 下 import 会拿到新实例）
+window.__audio = audio;
 
 /* 8. 调试直达：?t=0.75 时，玩家点「开始游戏」后车直接落到赛道参数 t 处 */
 const jumpT = Number(params.get('t'));

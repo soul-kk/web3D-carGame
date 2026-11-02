@@ -98,6 +98,7 @@ export class Track {
     this.#clearMeshes();
     this.#buildRoad();
     this.#buildCurbs();
+    this.#buildEdgeLines();
     this.#buildCenterLine();
     this.#buildStartLine();
     if (this.bridge) this.#buildBridge();
@@ -144,11 +145,15 @@ export class Track {
     const y = this.heightAt(t);
     if (y === null) return { y: null, slope: 0 };
     const eps = 0.0015;
+    const span = eps * this.totalLength;
     const before = this.heightAt(t - eps);
     const after = this.heightAt(t + eps);
-    const a = before === null ? y : before;
-    const b = after === null ? y : after;
-    return { y, slope: (b - a) / (2 * eps * this.totalLength) };
+    // 断口边上另一侧没有路面：用单侧差分。
+    // 【别拿 y 顶替】那样斜率会被砍掉一半，起跳唇看起来 10°，车只吃到 5°。
+    if (before === null && after === null) return { y, slope: 0 };
+    if (before === null) return { y, slope: (after - y) / span };
+    if (after === null) return { y, slope: (y - before) / span };
+    return { y, slope: (after - before) / (2 * span) };
   }
 
   /* ================= 查询接口 ================= */
@@ -255,7 +260,7 @@ export class Track {
       uvs.push(0, v, 1, v);
 
       if (connected) {
-        const a = vertex - 4, b = vertex - 3, c = vertex - 2, d = vertex - 1;
+        const a = vertex - 2, b = vertex - 1, c = vertex, d = vertex + 1;
         indices.push(a, b, c, b, d, c);
       }
       vertex += 2;
@@ -281,6 +286,25 @@ export class Track {
     const right = this.#buildRibbon(-this.halfWidth, -this.halfWidth - TRACK.curbWidth, curbColor, heightFn);
     left.receiveShadow = right.receiveShadow = true;
     this.group.add(left, right);
+  }
+
+  /** 白色边线：贴着路沿内侧，让"赛道有多宽"一眼可见 */
+  #buildEdgeLines() {
+    const heightFn = (i, N) => {
+      const h = this.heightAt(i / N);
+      return h === null ? null : h + 0.015;
+    };
+    const white = (color) => color.setHex(0xf5f7fa);
+    for (const side of [1, -1]) {
+      const line = this.#buildRibbon(
+        side * (this.halfWidth - 0.3),
+        side * this.halfWidth,
+        white,
+        heightFn,
+      );
+      line.receiveShadow = false;
+      this.group.add(line);
+    }
   }
 
   /**
@@ -314,7 +338,7 @@ export class Track {
       colors.push(color.r, color.g, color.b, color.r, color.g, color.b);
 
       if (connected) {
-        const a = vertex - 4, b = vertex - 3, c = vertex - 2, d = vertex - 1;
+        const a = vertex - 2, b = vertex - 1, c = vertex, d = vertex + 1;
         indices.push(a, b, c, b, d, c);
       }
       vertex += 2;
@@ -364,10 +388,11 @@ export class Track {
     this.group.add(mesh);
   }
 
-  /** 黑白格起跑线 + 龙门架 */
+  /** 黑白格起跑线 + 龙门架。车停在 t=0，线放在车前 6 m —— 正常发车格。 */
   #buildStartLine() {
-    const p0 = this.points[0];
-    const t0 = this.tangents[0];
+    const tLine = 6 / this.count;
+    const p0 = this.pointAt(tLine);
+    const t0 = this.tangentAt(tLine);
     const heading = Math.atan2(t0.x, t0.z);   // 朝向角 = atan2(x分量, z分量)
 
     const line = new THREE.Mesh(
@@ -400,185 +425,126 @@ export class Track {
   }
 
   /**
-   * 断桥的"骨头"：桥腹板、护栏、桥墩、还有断口两边的碎板和警示条。
+   * 断桥：一整块连续的桥面 + 两道实心护栏 + 几根桥墩。
    *
-   * 【为什么桥面之外还要这些】光有一块浮空的路面板，玩家根本看不出
-   * "这是一座桥"，也不知道桥下面是什么 —— 之前就是这么反馈的：
-   * "断桥部分都看不到桥在哪，整个车浮空了"。
-   * 桥墩和护栏给出尺度感，腹板给桥面厚度，
-   * 碎掉的板子和警示条则明确地告诉玩家"这里塌了，冲过去"。
+   * 【为什么重写】上一版是"路面抬高 + 两侧腹板 + 一排立柱 + 一堆碎板"，
+   * 远看像浮在空中的板子，断口处又是一堆乱插的方块。现在桥面本身是一块
+   * 闭合的实体断面（顶 / 底 / 两侧 + 断口封口），护栏是连续的墙，
+   * 不再有碎板、警戒条、发光条这些零碎件。
    */
   #buildBridge() {
     const b = this.bridge;
     const theme = this.theme;
-    /** 护栏用警戒色（熔岩图是橙红），一眼能看出"这是高架" */
-    const railColor = theme.rail ?? theme.curbA;
-    /** 腹板 / 桥墩：比路面暗一号的岩色 */
-    const beamMaterial = toon(0x3c2f34);
-    const pierMaterial = toon(0x4a3b3f);
 
-    /** 桥面边缘（路肩外沿） */
-    const edge = this.halfWidth + TRACK.curbWidth;
+    /** 桥面比路面低 2 cm：路面仍然是行驶表面，不会和桥面 Z-fighting */
+    const DECK_DROP = 0.02;
+    /** 桥板厚度 */
+    const THICKNESS = 1.6;
+    /** 路肩外沿 + 一点挑檐 */
+    const halfDeck = this.halfWidth + TRACK.curbWidth + 0.35;
+    /** 护栏宽 / 高 */
+    const BARRIER_W = 0.45;
+    const BARRIER_H = 1.0;
 
-    /* 1. 桥腹板：沿两侧竖起来的板子，给桥面 1.8 m 的厚度 */
-    for (const side of [1, -1]) {
-      const fascia = this.#buildVerticalRibbon(
-        side * edge,
-        (i, N) => {
-          const h = this.heightAt(i / N);
-          return h === null ? null : h + TRACK.surfaceY;
-        },
-        (i, N) => {
-          const h = this.heightAt(i / N);
-          return h === null ? null : h + TRACK.surfaceY - 1.8;
-        },
-      );
-      fascia.material = beamMaterial;
-      fascia.castShadow = true;
-      this.group.add(fascia);
-    }
+    const deckMaterial = toon(theme.bridgeDeck ?? 0x4a3b3f, { side: THREE.DoubleSide });
+    const railMaterial = toon(theme.rail ?? 0xb04a28, { side: THREE.DoubleSide });
+    const pierMaterial = toon(0x362b2f);
 
-    /* 2. 护栏：立在腹板外侧的高条 + 每隔几米一根立柱 */
-    for (const side of [1, -1]) {
-      const rail = this.#buildVerticalRibbon(
-        side * (edge + 0.18),
-        (i, N) => {
-          const h = this.heightAt(i / N);
-          return h === null ? null : h + TRACK.surfaceY + 1.5;
-        },
-        (i, N) => {
-          const h = this.heightAt(i / N);
-          return h === null ? null : h + TRACK.surfaceY;
-        },
-      );
-      rail.material = toon(railColor);
-      this.group.add(rail);
+    const topAt = (h) => h + TRACK.surfaceY - DECK_DROP;
 
-      // 立柱：让护栏有"一格一格"的节奏，而不是一条贴纸
-      const postGeometry = new THREE.BoxGeometry(0.34, 1.6, 0.34);
-      for (let t = b.from; t <= b.to; t += 0.008) {
-        const h = this.heightAt(t);
-        if (h === null || h < 0.6) continue;
-        const p = this.pointAt(t);
-        const n = this.normalAt(t);
-        const post = new THREE.Mesh(postGeometry, toon(0x2f2429));
-        post.position.set(
-          p.x + n.x * side * (edge + 0.18),
-          h + TRACK.surfaceY + 0.8,
-          p.z + n.z * side * (edge + 0.18),
-        );
-        post.castShadow = true;
-        this.group.add(post);
+    /** 两段桥面：断口前、断口后。每段两端都封口，塌口就是一个干净的切口。 */
+    const spans = [[b.from, b.gapFrom], [b.gapTo, b.to]];
+
+    for (const [from, to] of spans) {
+      // 桥面：一整块闭合断面
+      this.#addSweptSolid(from, to, (h) => {
+        const top = topAt(h);
+        return [
+          [halfDeck, top],
+          [halfDeck, top - THICKNESS],
+          [-halfDeck, top - THICKNESS],
+          [-halfDeck, top],
+        ];
+      }, deckMaterial);
+
+      // 护栏：两条连续的实心墙（不再是一根根立柱）
+      for (const side of [1, -1]) {
+        const center = side * (this.halfWidth + TRACK.curbWidth + 0.22);
+        this.#addSweptSolid(from, to, (h) => {
+          const base = topAt(h) + 0.01;
+          return [
+            [center - BARRIER_W / 2, base + BARRIER_H],
+            [center + BARRIER_W / 2, base + BARRIER_H],
+            [center + BARRIER_W / 2, base],
+            [center - BARRIER_W / 2, base],
+          ];
+        }, railMaterial);
       }
     }
 
-    /* 3. 桥墩：粗墩子 + 顶上的横梁（把两侧的墩子连起来） */
-    for (let t = b.from; t <= b.to; t += 0.012) {
+    // 桥墩：一排大墩子撑住整块桥面，断口附近让开
+    for (let t = b.from; t <= b.to; t += 0.022) {
       if (t > b.gapFrom - 0.012 && t < b.gapTo + 0.012) continue;
-      const height = this.heightAt(t);
-      if (height === null || height < 1.2) continue;
+      const h = this.heightAt(t);
+      if (h === null || h < 1.5) continue;
 
       const p = this.pointAt(t);
-      const n = this.normalAt(t);
       const tan = this.tangentAt(t);
-      const heading = Math.atan2(tan.x, tan.z);
-
-      for (const side of [1, -1]) {
-        const pier = new THREE.Mesh(
-          new THREE.BoxGeometry(3.2, height + TRACK.surfaceY, 3.2),
-          pierMaterial,
-        );
-        pier.position.set(
-          p.x + n.x * side * (this.halfWidth - 0.6),
-          (height + TRACK.surfaceY) / 2,
-          p.z + n.z * side * (this.halfWidth - 0.6),
-        );
-        pier.castShadow = true;
-        this.group.add(pier);
-      }
-
-      // 横梁：横跨整个桥面宽度的盖梁
-      const cap = new THREE.Mesh(
-        new THREE.BoxGeometry(this.halfWidth * 2 + 1.2, 1.1, 2.4),
-        beamMaterial,
-      );
-      cap.position.set(p.x, height + TRACK.surfaceY - 1.9, p.z);
-      cap.rotation.y = heading;
-      cap.castShadow = true;
-      this.group.add(cap);
-    }
-
-    /* 4. 断口警戒带：断口前后各铺一段"警戒色 + 深色"交替的路面条 */
-    this.#buildHazardStrip(b.gapFrom - 0.013, b.gapFrom, railColor);
-    this.#buildHazardStrip(b.gapTo, b.gapTo + 0.013, railColor);
-
-    /* 5. 断口边缘的发光条：熔岩图里雾很浓，普通颜色看不清"这里没有桥面" */
-    const glowMaterial = new THREE.MeshBasicMaterial({ color: theme.lava ?? 0xff6a1a });
-    for (const [edgeT, direction] of [[b.gapFrom, -1], [b.gapTo, 1]]) {
-      const p = this.pointAt(edgeT);
-      const tan = this.tangentAt(edgeT);
-      const glow = new THREE.Mesh(
-        new THREE.BoxGeometry(this.halfWidth * 2, 0.5, 0.7),
-        glowMaterial,
-      );
-      glow.position.set(p.x, TRACK.surfaceY + (this.heightAt(edgeT) ?? 0) - 0.1, p.z);
-      glow.rotation.y = Math.atan2(tan.x, tan.z);
-      this.group.add(glow);
-    }
-
-    // 断口两边的碎板：斜插着的木板，一眼就知道"这里断了"
-    for (const [edgeT, direction] of [[b.gapFrom, -1], [b.gapTo, 1]]) {
-      for (let k = 0; k < 5; k++) {
-        const t = edgeT + direction * k * 0.0016;
-        const height = this.heightAt(t) ?? b.height;
-        const p = this.pointAt(t);
-        const n = this.normalAt(t);
-        const shard = new THREE.Mesh(
-          new THREE.BoxGeometry(0.5, 2.6, 3.2),
-          toon(0x3a2c30),
-        );
-        shard.position.set(
-          p.x + n.x * (k - 2) * 2.6,
-          TRACK.surfaceY + height + 0.4 + k * 0.25,
-          p.z + n.z * (k - 2) * 2.6,
-        );
-        shard.rotation.set(0.5 + k * 0.12, Math.atan2(this.tangentAt(t).x, this.tangentAt(t).z), 0.3 * k);
-        shard.castShadow = true;
-        this.group.add(shard);
-      }
+      const top = topAt(h) - THICKNESS;
+      const pier = new THREE.Mesh(new THREE.BoxGeometry(3.6, top, 3.0), pierMaterial);
+      pier.position.set(p.x, top / 2, p.z);
+      pier.rotation.y = Math.atan2(tan.x, tan.z);
+      pier.castShadow = true;
+      pier.receiveShadow = true;
+      this.group.add(pier);
     }
   }
 
   /**
-   * 竖直的带状几何体：沿着赛道两侧立起来的一片（护栏、腹板都用它）。
+   * 把一个闭合断面沿着赛道扫成实体（桥面、护栏都用它）。
    *
-   * @param {number} offset 相对中心线的横向偏移
-   * @param {(i:number,n:number)=>number|null} topFn 每个采样点的顶边高度，null 表示断开
-   * @param {(i:number,n:number)=>number|null} bottomFn 底边高度
+   * @param {number} from 起点 t
+   * @param {number} to 终点 t
+   * @param {(h:number)=>Array<[number,number]>} sectionFn 每个采样点的断面，[横向偏移, 世界 y]
+   * @param {THREE.Material} material
    */
-  #buildVerticalRibbon(offset, topFn, bottomFn) {
+  #addSweptSolid(from, to, sectionFn, material) {
     const N = this.count;
-    const positions = [];
-    const indices = [];
-    let vertex = 0;
-    let connected = false;
+    const start = Math.ceil(from * N);
+    const end = Math.floor(to * N);
+    const rings = [];
 
-    for (let i = 0; i <= N; i++) {
-      const top = topFn(i, N);
-      const bottom = bottomFn(i, N);
-      if (top === null || bottom === null) { connected = false; continue; }
-
+    for (let i = start; i <= end; i++) {
+      const h = this.heightAt(i / N);
+      if (h === null) continue;
       const p = this.points[i % N];
       const n = this.normals[i % N];
-      positions.push(p.x + n.x * offset, top, p.z + n.z * offset);
-      positions.push(p.x + n.x * offset, bottom, p.z + n.z * offset);
+      rings.push(sectionFn(h).map(([off, y]) => new THREE.Vector3(
+        p.x + n.x * off, y, p.z + n.z * off,
+      )));
+    }
+    if (rings.length < 2) return;
 
-      if (connected) {
-        const a = vertex - 4, b = vertex - 3, c = vertex - 2, d = vertex - 1;
-        indices.push(a, b, c, b, d, c);
+    const M = rings[0].length;
+    const positions = [];
+    const indices = [];
+    for (const ring of rings) for (const v of ring) positions.push(v.x, v.y, v.z);
+
+    for (let r = 0; r < rings.length - 1; r++) {
+      const base = r * M;
+      const next = (r + 1) * M;
+      for (let k = 0; k < M; k++) {
+        const k2 = (k + 1) % M;
+        indices.push(base + k, base + k2, next + k2);
+        indices.push(base + k, next + k2, next + k);
       }
-      vertex += 2;
-      connected = true;
+    }
+
+    // 两端封口：断面是凸四边形，扇形三角化
+    const capEnd = (rings.length - 1) * M;
+    for (let k = 1; k < M - 1; k++) {
+      indices.push(0, k, k + 1);
+      indices.push(capEnd, capEnd + k + 1, capEnd + k);
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -586,25 +552,9 @@ export class Track {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
-    return new THREE.Mesh(geometry, toon(0xffffff, { side: THREE.DoubleSide }));
-  }
-
-  /**
-   * 铺在路面上的"警戒条"：警戒色和深色交替的一段路面。
-   * 用在断口前后 —— 让玩家在开上去之前就知道"前面没有桥面了"。
-   */
-  #buildHazardStrip(from, to, color) {
-    const strip = this.#buildRibbon(
-      -this.halfWidth, this.halfWidth,
-      (c, i) => c.setHex(Math.floor(i / 4) % 2 ? 0x241b1f : color),
-      (i, N) => {
-        const t = i / N;
-        if (t < from || t > to) return null;
-        const h = this.heightAt(t);
-        return h === null ? null : h + 0.02;
-      },
-    );
-    strip.material = toon(0xffffff, { vertexColors: true, side: THREE.DoubleSide });
-    this.group.add(strip);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.group.add(mesh);
   }
 }

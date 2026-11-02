@@ -8,8 +8,9 @@ const NITRO_HINT = {
   half: '漂移蓄力 · Ⅱ',
   ready: '蓄力完成！松开手刹',
   fading: '继续漂移，蓄力正在消退',
-  burst: '氮 气 释 放！',
-  boosting: '氮气加速中',
+  // 释放 / 加速中不再显示大字，只留蓝色边缘光和尾焰
+  burst: '',
+  boosting: '',
 };
 
 /**

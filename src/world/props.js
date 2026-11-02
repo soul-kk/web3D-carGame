@@ -66,7 +66,7 @@ export class Coins {
         const mesh = new THREE.Mesh(this.geometry, this.material);
         // 高度要跟着路面走：桥面上的金币必须在桥面上方，不能埋进桥板里
         mesh.position.set(p.x + n.x * offset, surface.y + PROPS.coinHeight, p.z + n.z * offset);
-        mesh.castShadow = true;
+        mesh.castShadow = false;   // 金币悬在 1.5 m 高，硬阴影在路面上是一块黑饼
         this.scene.add(mesh);
 
         this.list.push({
@@ -97,7 +97,7 @@ export class Coins {
 
         const mesh = new THREE.Mesh(this.geometry, this.material);
         mesh.position.set(p.x + n.x * offset, surface.y + PROPS.coinHeight, p.z + n.z * offset);
-        mesh.castShadow = true;
+        mesh.castShadow = false;   // 金币悬在 1.5 m 高，硬阴影在路面上是一块黑饼
         this.scene.add(mesh);
 
         this.list.push({
@@ -173,7 +173,7 @@ export class BoostPads {
     this.list = [];
 
     // 几何体和贴图只建一次：换地图时复用，别每次都新建一份把显存漏掉
-    this.geometry = new THREE.PlaneGeometry(4.4, 6.4);
+    this.geometry = new THREE.PlaneGeometry(3.8, 5.4);
     this.texture = createPadTexture();
     this.material = new THREE.MeshBasicMaterial({
       map: this.texture, transparent: true, opacity: 0.9,

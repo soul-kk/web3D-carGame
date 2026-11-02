@@ -154,6 +154,15 @@ canvas { display: block; }
 .card p.dim { opacity: .6; }
 .instructions { margin-bottom: 20px; text-align: left; }
 .instructions p { margin: 10px 0; }
+
+/* 设置：两条音量滑杆 */
+.settings { margin: 8px 0 22px; display: grid; gap: 18px; text-align: left; }
+.settings-row {
+  display: grid; grid-template-columns: 84px 1fr 48px; align-items: center; gap: 12px;
+  font-size: 16px; font-weight: 900; color: #1b2430;
+}
+.settings-row input[type='range'] { width: 100%; accent-color: #ff4d5a; cursor: pointer; }
+.settings-row b { text-align: right; font-variant-numeric: tabular-nums; }
 .btn { display: inline-block; margin: 5px; padding: 11px 22px; cursor: pointer; background: #ffd166; border: 3px solid #1b2430; border-radius: 12px; color: #1b2430; font: inherit; font-size: 18px; font-weight: 900; box-shadow: 4px 4px 0 #1b2430; transition: transform .1s; }
 .btn:hover { transform: translate(2px, 2px); }
 .btn.secondary { background: #fff; }

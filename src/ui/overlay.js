@@ -20,6 +20,9 @@ export class Overlay {
     this.onClearRecords = () => {};
     this.onSkinChange = () => {};
     this.onMapChange = () => {};
+    /** 音量读写由 main.js 注入，Overlay 不直接认识 audio 模块 */
+    this.getVolumes = () => ({ music: 1, sfx: 1 });
+    this.onVolumeChange = () => {};
 
     this.skinButtons = new Map();
     this.mapButtons = new Map();
@@ -32,10 +35,13 @@ export class Overlay {
     document.getElementById('btn-help').addEventListener('click', () => this.showInstructions());
     document.getElementById('btn-skin').addEventListener('click', () => this.showSkinPicker());
     document.getElementById('btn-map').addEventListener('click', () => this.showMapPicker());
+    document.getElementById('btn-settings').addEventListener('click', () => this.showSettings());
     document.getElementById('btn-clear').addEventListener('click', () => this.onClearRecords());
     document.getElementById('btn-pause').addEventListener('click', () => this.onPause());
     window.addEventListener('keydown', (event) => {
-      if (event.code === 'Escape' && this.view === 'instructions') this.closeInstructions();
+      if (event.code === 'Escape' && (this.view === 'instructions' || this.view === 'settings')) {
+        this.closeInstructions();
+      }
     });
     this.card.addEventListener('keydown', (event) => {
       if (event.key !== 'Tab') return;
@@ -197,7 +203,46 @@ export class Overlay {
   }
 
   closeInstructions() {
-    if (this.view === 'instructions') this.showMenu();
+    if (this.view === 'instructions' || this.view === 'settings') this.showMenu();
+  }
+
+  /** 首页"设置" → 两条音量滑杆（背景音乐 / 汽车声音） */
+  showSettings() {
+    if (this.view !== 'menu') return;
+    const volumes = this.getVolumes();
+    const body = document.createElement('div');
+    body.className = 'settings';
+
+    for (const [kind, label, value] of [
+      ['music', '背景音乐', volumes.music],
+      ['sfx', '汽车声音', volumes.sfx],
+    ]) {
+      const row = document.createElement('label');
+      row.className = 'settings-row';
+
+      const name = document.createElement('span');
+      name.textContent = label;
+
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = '0';
+      input.max = '100';
+      input.step = '1';
+      input.value = String(Math.round(value * 100));
+
+      const out = document.createElement('b');
+      out.textContent = `${input.value}%`;
+
+      input.addEventListener('input', () => {
+        out.textContent = `${input.value}%`;
+        this.onVolumeChange(kind, Number(input.value) / 100);
+      });
+
+      row.append(name, input, out);
+      body.append(row);
+    }
+
+    this.#dialog('设 置', [body, this.#button('返回主界面', () => this.showMenu(), 'btn secondary')], 'settings');
   }
 
   /**

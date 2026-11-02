@@ -20,6 +20,7 @@ import * as THREE from 'three';
 import { createApp } from '../src/core/app.js';
 import { Track } from '../src/world/track.js';
 import { createEnvironment } from '../src/world/environment.js';
+import { Coins, BoostPads } from '../src/world/props.js';
 import { getMapById } from '../src/world/maps.js';
 
 const params = new URLSearchParams(location.search);
@@ -39,6 +40,11 @@ app.setTheme(map.theme);
 
 const track = new Track(app.scene, map);
 createEnvironment(app.scene, track, map.theme);
+// 道具也一起摆出来（金币 / 加速带），方便看摆位
+if (params.get('props') !== '0') {
+  new Coins(app.scene, track, map.props?.coins ?? null);
+  new BoostPads(app.scene, track, map.props?.boosts ?? null);
+}
 
 /** 赛道参数 t 处的路面高度 */
 function deckY(tt) {

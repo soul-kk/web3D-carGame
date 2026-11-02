@@ -163,7 +163,7 @@ if (!bridge) {
     const getSurface = oneSided
       ? (t) => ({ y: heightAt(t), slope: slopeOneSided(t) })
       : surfaceAt;
-    let s = 0.06 * totalLength;
+    let s = (b.from - 0.02) * totalLength;
     let y = 0;
     let vy = 0;
     let airborne = false;
@@ -174,7 +174,7 @@ if (!bridge) {
     let air = 0;
     let minY = Infinity;
 
-    for (let step = 0; step < 60 * 12; step++) {
+    for (let step = 0; step < 60 * 20; step++) {
       s += v * dt;
       const idx = Math.round(s / spacing) % N;
       const surf = getSurface(idx / N);
@@ -234,11 +234,11 @@ if (!bridge) {
   if (traceSpeed > 0) {
     log('');
     log(`-- ${traceSpeed} m/s 逐帧轨迹（只看断口附近）--`);
-    let s = 0.06 * totalLength;
+    let s = (b.from - 0.02) * totalLength;
     let y = 0;
     let vy = 0;
     let airborne = false;
-    for (let step = 0; step < 60 * 12; step++) {
+    for (let step = 0; step < 60 * 20; step++) {
       s += traceSpeed * dt;
       const idx = Math.round(s / spacing) % N;
       const surf = surfaceAt(idx / N);
@@ -281,44 +281,22 @@ if (!bridge) {
   }
   log(`  map-check 的理论值              ≈ 30.7 m/s（假定了完整唇口坡度，但没有落地判定）`);
 
-  /* ---------------- 断口前后各零件的生成数量 ---------------- */
+  /* ---------------- 断桥现在的生成方式 ---------------- */
 
   log('');
-  log('-- #buildBridge 生成出来的零件 --');
+  log('-- #buildBridge 生成出来的结构（整块实体）--');
 
-  const edge = halfWidth + TRACK.curbWidth;
-
-  let posts = 0;
-  let postMats = 0;
+  const halfDeck = halfWidth + TRACK.curbWidth + 0.35;
   let piers = 0;
-  let caps = 0;
-  const pierRows = [];
-  for (let t = b.from; t <= b.to; t += 0.008) {
-    const h = heightAt(t);
-    if (h === null || h < 0.6) continue;
-    posts += 2;
-    postMats += 2;
-  }
-  for (let t = b.from; t <= b.to; t += 0.012) {
+  for (let t = b.from; t <= b.to; t += 0.022) {
     if (t > b.gapFrom - 0.012 && t < b.gapTo + 0.012) continue;
     const h = heightAt(t);
-    if (h === null || h < 1.2) continue;
-    piers += 2;
-    caps += 1;
-    pierRows.push(t);
+    if (h === null || h < 1.5) continue;
+    piers += 1;
   }
-  log(`  桥墩 ${piers} 根（${pierRows.length} 排）| 盖梁 ${caps} 根`);
-  // 桥墩顶用的是 heightAt(t)，桥面是相邻采样点的线性插值 —— 两者差多少？
-  let maxPierDiff = 0;
-  for (const t of pierRows) {
-    const i = Math.floor(t * N);
-    const f = t * N - i;
-    const deck = heightAt(i / N) * (1 - f) + heightAt((i + 1) / N) * f;
-    maxPierDiff = Math.max(maxPierDiff, Math.abs(heightAt(t) - deck));
-  }
-  log(`  桥墩顶面与插值桥面的最大高差 ${(maxPierDiff * 100).toFixed(1)} cm → 顶面与桥面共面，${piers} 处 z-fighting`);
-  log(`  护栏立柱 ${posts} 根 → ${postMats} 个独立材质（每根都 toon() 新建）`);
-  log(`  腹板 2 | 护栏 2 | 断口警戒条 2 | 断口发光条 2 | 碎板 10`);
+  log(`  桥面 2 段（断口前 / 断口后，闭合断面扫掠，两端封口）`);
+  log(`  护栏 4 段（两侧各 2 段，连续实心墙）| 桥墩 ${piers} 根`);
+  log(`  断面：宽 ${(halfDeck * 2).toFixed(1)} m，板厚 1.6 m，护栏 0.45×1.0 m`);
 
   /* ---------------- 中线虚线（InstancedMesh） ---------------- */
 
@@ -326,24 +304,7 @@ if (!bridge) {
   for (let d = 12; d < totalLength - 12; d += 9) dashParams.push(d / totalLength);
   let skipped = 0;
   for (const t of dashParams) if (heightAt(t) === null) skipped += 1;
-  log(`  中线虚线实例 ${dashParams.length} 个，其中 ${skipped} 个落在断口 → 矩阵留在单位阵（原点 (0,0,0) 会多出 ${skipped} 块虚线）`);
-
-  /* ---------------- 断面尺寸 ---------------- */
-
-  log('');
-  log('-- 桥面断面（米）--');
-  log(`  路面半宽 ${halfWidth} + 路肩 ${TRACK.curbWidth} → 外沿 ${edge}`);
-  log(`  腹板厚 1.8（桥面顶 → 底 ${(surfaceY).toFixed(2)} → ${(surfaceY - 1.8).toFixed(2)}）`);
-  log(`  护栏高 1.5（${(surfaceY + 0).toFixed(2)} → ${(surfaceY + 1.5).toFixed(2)}），立柱高 1.6`);
-  log(`  桥墩 3.2×3.2，盖梁 1.1 高，中心在桥面下 1.9 m`);
-  log(`  【断口没有端面】路面是零厚度三角带，腹板只是两侧竖片，塌口处没有"板厚的切口"`);
-
-  const pierTop = pierRows.length
-    ? heightAt(pierRows[0]) + surfaceY
-    : null;
-  if (pierTop !== null) {
-    log(`  桥墩顶 y=${pierTop.toFixed(2)}，腹板底 y=${(pierTop - 1.8).toFixed(2)} → 桥墩穿过腹板 1.8 m 后才到桥面`);
-  }
+  log(`  中线虚线实例 ${dashParams.length} 个，其中 ${skipped} 个落在断口 → 原点会多出 ${skipped} 块虚线`);
 }
 
 /* ---------------- 输出 ---------------- */

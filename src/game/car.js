@@ -36,6 +36,9 @@ function disposeModel(model) {
 export function createCarModel({ ghost = false, skinId = DEFAULT_SKIN } = {}) {
   const skin = getSkinById(skinId);
   if (skin.id === 'saucer') return createSaucerModel(ghost, skin);
+  if (skin.id === 'train') return createTrainModel(ghost, skin);
+  if (skin.id === 'monster') return createMonsterModel(ghost, skin);
+  if (skin.id === 'tank') return createTankModel(ghost, skin);
   return createRacerModel(ghost, skin);
 }
 
@@ -191,6 +194,241 @@ function createSaucerModel(ghost, skin) {
   };
 
   return { root, chassis, wheels: [], animate };
+}
+
+/* ================= 其它车型 ================= */
+
+/** 车模通用的幽灵材质：半透明、不写深度 */
+function skinMaterial(ghost) {
+  return (color) => (ghost
+    ? toon(color, { transparent: true, opacity: 0.32, depthWrite: false })
+    : toon(color));
+}
+
+/**
+ * 造一个轮子挂到 root 上，并把 { pivot, tyre, rim, front } 收进 wheels。
+ * 轮胎沿用"圆柱绕 Z 转 90°"的做法，这样 #updateVisuals 的 rotation.x 就是滚动。
+ */
+function addWheel(root, wheels, {
+  x, z, radius, width, rimScale, tyreColor, rimColor, ghost, front = false,
+}) {
+  const material = skinMaterial(ghost);
+  const pivot = new THREE.Group();
+  pivot.position.set(x, radius, z);
+
+  const tyreGeometry = new THREE.CylinderGeometry(radius, radius, width, 14);
+  tyreGeometry.rotateZ(Math.PI / 2);
+  const rimGeometry = new THREE.CylinderGeometry(radius * rimScale, radius * rimScale, width + 0.04, 8);
+  rimGeometry.rotateZ(Math.PI / 2);
+
+  const tyre = new THREE.Mesh(tyreGeometry, material(tyreColor));
+  tyre.castShadow = !ghost;
+  const rim = new THREE.Mesh(rimGeometry, material(rimColor));
+
+  pivot.add(tyre, rim);
+  root.add(pivot);
+  wheels.push({ pivot, tyre, rim, front });
+}
+
+/**
+ * 蒸汽火车：锅炉 + 烟囱 + 驾驶室 + 排障器，六个轮子，烟囱一直冒烟。
+ * 车头朝 +Z（和赛车一致），追车镜头看到的是驾驶室屁股。
+ */
+function createTrainModel(ghost, skin) {
+  const root = new THREE.Group();
+  const chassis = new THREE.Group();
+  root.add(chassis);
+  const wheels = [];
+  const material = skinMaterial(ghost);
+
+  const add = (geometry, color, x, y, z, { outline = false } = {}) => {
+    const mesh = new THREE.Mesh(geometry, material(color));
+    mesh.position.set(x, y, z);
+    mesh.castShadow = !ghost;
+    mesh.receiveShadow = !ghost;
+    chassis.add(mesh);
+    if (outline && !ghost) chassis.add(addOutline(mesh));
+    return mesh;
+  };
+
+  // 底盘
+  add(new THREE.BoxGeometry(2.2, 0.45, 4.8), skin.dark, 0, 0.78, 0);
+
+  // 锅炉：横躺的圆柱（默认 Y 轴，转 90° 变成沿 Z）
+  const boiler = new THREE.CylinderGeometry(0.84, 0.84, 2.7, 16);
+  boiler.rotateX(Math.PI / 2);
+  add(boiler, skin.body, 0, 1.62, 0.5, { outline: true });
+
+  // 烟箱（前脸）+ 烟囱
+  const smokebox = new THREE.CylinderGeometry(0.9, 0.9, 0.42, 16);
+  smokebox.rotateX(Math.PI / 2);
+  add(smokebox, skin.dark, 0, 1.62, 2.03, { outline: true });
+  add(new THREE.CylinderGeometry(0.26, 0.36, 1.05, 10), skin.dark, 0, 2.72, 1.7, { outline: true });
+
+  const stackRing = new THREE.TorusGeometry(0.31, 0.07, 6, 12);
+  stackRing.rotateX(Math.PI / 2);
+  add(stackRing, skin.glow, 0, 3.24, 1.7);
+
+  // 驾驶室 + 车顶 + 窗
+  add(new THREE.BoxGeometry(2.0, 1.55, 1.55), skin.body, 0, 2.0, -1.35, { outline: true });
+  add(new THREE.BoxGeometry(2.2, 0.16, 1.75), skin.dark, 0, 2.85, -1.35);
+  add(new THREE.BoxGeometry(1.25, 0.6, 0.08), skin.glass, 0, 2.25, -0.56);
+  add(new THREE.BoxGeometry(0.08, 0.55, 1.1), skin.glass, 1.0, 2.22, -1.35);
+  add(new THREE.BoxGeometry(0.08, 0.55, 1.1), skin.glass, -1.0, 2.22, -1.35);
+  // 驾驶室后窗 + 尾灯：追车镜头正对着车尾，没有窗就是一整块黑板
+  add(new THREE.BoxGeometry(1.25, 0.62, 0.08), skin.glass, 0, 2.28, -2.14);
+  add(new THREE.SphereGeometry(0.12, 8, 6), 0xff5a4a, 0, 2.72, -2.16);
+  // 车钩 + 两个缓冲器
+  add(new THREE.BoxGeometry(1.1, 0.28, 0.5), skin.dark, 0, 0.72, -2.45, { outline: true });
+  for (const side of [1, -1]) {
+    const buffer = add(new THREE.CylinderGeometry(0.16, 0.16, 0.26, 8), skin.glow, side * 0.42, 0.95, -2.5);
+    buffer.rotation.x = Math.PI / 2;
+  }
+
+  // 排障器（斜插在车头前下方）
+  const cowcatcher = add(new THREE.BoxGeometry(2.1, 0.75, 1.2), skin.dark, 0, 0.58, 2.5, { outline: true });
+  cowcatcher.rotation.x = -0.42;
+
+  // 头灯
+  add(new THREE.SphereGeometry(0.2, 10, 8), skin.glow, 0, 2.0, 2.55);
+
+  // 三对轮子：前小后大
+  for (const side of [1, -1]) {
+    for (const [z, radius] of [[1.55, 0.62], [0.35, 0.78], [-0.95, 0.78]]) {
+      addWheel(root, wheels, {
+        x: side * 1.16,
+        z,
+        radius,
+        width: 0.4,
+        rimScale: 0.52,
+        tyreColor: 0x24262c,
+        rimColor: skin.accent,
+        ghost,
+      });
+    }
+  }
+
+  // 烟囱冒烟：5 团灰烟循环上升、变大、变淡
+  const puffs = [];
+  if (!ghost) {
+    for (let i = 0; i < 5; i++) {
+      const puff = new THREE.Mesh(
+        new THREE.SphereGeometry(0.28, 8, 6),
+        toon(0xd9d2c5, { transparent: true, opacity: 0.55, depthWrite: false }),
+      );
+      puff.position.set(0, 3.2, 1.7);
+      chassis.add(puff);
+      puffs.push(puff);
+    }
+  }
+
+  const animate = (t) => {
+    for (let i = 0; i < puffs.length; i++) {
+      const p = ((t * 0.5 + i / puffs.length) % 1 + 1) % 1;
+      const puff = puffs[i];
+      puff.position.set(0, 3.2 + p * 2.8, 1.7 - p * 0.4);
+      puff.scale.setScalar(0.55 + p * 1.3);
+      puff.material.opacity = 0.55 * (1 - p);
+    }
+  };
+
+  return { root, chassis, wheels, animate };
+}
+
+/**
+ * 大脚车：高底盘、大轮子，货斗 + 防滚架。
+ * 和赛车最明显的区别是轮子几乎和车身一样高。
+ */
+function createMonsterModel(ghost, skin) {
+  const root = new THREE.Group();
+  const chassis = new THREE.Group();
+  root.add(chassis);
+  const wheels = [];
+  const material = skinMaterial(ghost);
+
+  const add = (geometry, color, x, y, z, { outline = false } = {}) => {
+    const mesh = new THREE.Mesh(geometry, material(color));
+    mesh.position.set(x, y, z);
+    mesh.castShadow = !ghost;
+    mesh.receiveShadow = !ghost;
+    chassis.add(mesh);
+    if (outline && !ghost) chassis.add(addOutline(mesh));
+    return mesh;
+  };
+
+  // 高底盘
+  add(new THREE.BoxGeometry(2.4, 0.5, 4.4), skin.dark, 0, 1.3, 0);
+  // 车身 + 货斗
+  add(new THREE.BoxGeometry(2.2, 0.9, 2.7), skin.body, 0, 2.0, 0.25, { outline: true });
+  add(new THREE.BoxGeometry(2.0, 0.55, 1.5), skin.dark, 0, 1.75, -1.55);
+  // 驾驶室 + 车顶
+  add(new THREE.BoxGeometry(1.75, 0.8, 1.2), skin.glass, 0, 2.55, 0.55, { outline: true });
+  add(new THREE.BoxGeometry(1.9, 0.14, 1.3), skin.body, 0, 3.0, 0.55);
+  // 前灯
+  add(new THREE.BoxGeometry(0.45, 0.25, 0.12), skin.glow, 0.7, 2.0, 1.62);
+  add(new THREE.BoxGeometry(0.45, 0.25, 0.12), skin.glow, -0.7, 2.0, 1.62);
+  // 货斗里的防滚架
+  for (const side of [1, -1]) {
+    const bar = add(new THREE.CylinderGeometry(0.08, 0.08, 1.3, 8), skin.dark, side * 0.8, 2.2, -1.2);
+    bar.rotation.x = 0.25;
+  }
+
+  // 四个大轮子
+  for (const [x, z, front] of [
+    [1.35, 1.5, true], [-1.35, 1.5, true],
+    [1.35, -1.5, false], [-1.35, -1.5, false],
+  ]) {
+    addWheel(root, wheels, {
+      x, z, radius: 0.95, width: 0.72, rimScale: 0.5,
+      tyreColor: 0x24262c, rimColor: skin.dark, ghost, front,
+    });
+  }
+
+  return { root, chassis, wheels };
+}
+
+/**
+ * 小坦克：履带 + 车体 + 炮塔 + 炮管。没有轮子（履带不做滚动动画）。
+ */
+function createTankModel(ghost, skin) {
+  const root = new THREE.Group();
+  const chassis = new THREE.Group();
+  root.add(chassis);
+  const material = skinMaterial(ghost);
+
+  const add = (geometry, color, x, y, z, { outline = false } = {}) => {
+    const mesh = new THREE.Mesh(geometry, material(color));
+    mesh.position.set(x, y, z);
+    mesh.castShadow = !ghost;
+    mesh.receiveShadow = !ghost;
+    chassis.add(mesh);
+    if (outline && !ghost) chassis.add(addOutline(mesh));
+    return mesh;
+  };
+
+  // 履带 + 负重轮
+  for (const side of [1, -1]) {
+    add(new THREE.BoxGeometry(0.8, 0.8, 4.7), skin.dark, side * 1.3, 0.55, 0, { outline: true });
+    for (let i = 0; i < 5; i++) {
+      const wheel = new THREE.CylinderGeometry(0.34, 0.34, 0.84, 10);
+      wheel.rotateZ(Math.PI / 2);
+      add(wheel, 0x24262c, side * 1.3, 0.45, -1.7 + i * 0.85);
+    }
+  }
+
+  // 车体
+  add(new THREE.BoxGeometry(2.5, 0.7, 4.3), skin.body, 0, 1.2, 0, { outline: true });
+  // 炮塔
+  add(new THREE.CylinderGeometry(0.95, 1.1, 0.65, 12), skin.accent, 0, 1.85, -0.2, { outline: true });
+  // 炮管（圆柱转 90° 朝 +Z）
+  const barrel = new THREE.CylinderGeometry(0.11, 0.14, 2.6, 10);
+  barrel.rotateX(Math.PI / 2);
+  add(barrel, skin.dark, 0, 1.9, 1.15, { outline: true });
+  // 舱盖 + 天线
+  add(new THREE.CylinderGeometry(0.3, 0.3, 0.12, 10), skin.dark, 0.35, 2.22, -0.35);
+  add(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 6), skin.dark, -0.55, 2.6, -0.75);
+
+  return { root, chassis, wheels: [] };
 }
 
 /**
@@ -437,9 +675,12 @@ export class Car {
     }
 
     if (this.airborne) {
+      const prevY = this.y;
       this.vy -= CAR.gravity * dt;
       this.y += this.vy * dt;
-      if (this.y <= groundY) {
+      // 只认"从上方穿过桥面"的落地。否则车在断口里掉到桥面以下，
+      // 等对面桥面一出现就会被直接吸上来 —— 掉下去 5 m 也算过关。
+      if (this.y <= groundY && prevY >= groundY) {
         this.y = groundY;
         this.vy = 0;
         this.airborne = false;

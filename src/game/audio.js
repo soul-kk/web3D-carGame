@@ -1,4 +1,9 @@
 import { Music } from './music.js';
+import { readJson, writeJson } from '../core/storage.js';
+
+/** 音量存盘 key；music = 背景音乐，sfx = 引擎/漂移/提示音 */
+const VOLUME_KEY = 'audioVolumes';
+const DEFAULT_VOLUMES = { music: 1, sfx: 1 };
 
 /**
  * 音效：全部用 Web Audio API 现场合成，不需要任何音频文件。
@@ -27,6 +32,10 @@ class GameAudio {
     this.vehicle = 'racer';
     /** 背景音乐（init() 之后才有） */
     this.music = null;
+    /** 音乐 / 音效两条子总线，音量分开调 */
+    this.musicBus = null;
+    this.sfxBus = null;
+    this.volumes = { ...DEFAULT_VOLUMES, ...readJson(VOLUME_KEY, {}) };
     this.enabled = true;
     this.onToggle = null;
   }
@@ -53,6 +62,14 @@ class GameAudio {
     this.master.gain.value = this.enabled ? 0.6 : 0;
     this.master.connect(this.ctx.destination);
 
+    // 两条子总线：背景音乐 / 音效，音量各自可调，最后一起进 master（M 静音）
+    this.musicBus = this.ctx.createGain();
+    this.musicBus.gain.value = this.volumes.music;
+    this.musicBus.connect(this.master);
+    this.sfxBus = this.ctx.createGain();
+    this.sfxBus.gain.value = this.volumes.sfx;
+    this.sfxBus.connect(this.master);
+
     // 引擎声：锯齿波 → 低通滤波 → 音量。音高跟着车速变。
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -67,13 +84,13 @@ class GameAudio {
 
     this.engineOscillator.connect(filter);
     filter.connect(this.engineGain);
-    this.engineGain.connect(this.master);
+    this.engineGain.connect(this.sfxBus);
     this.engineOscillator.start();
 
     this.#buildHoverChain();
 
     // 背景音乐挂在总线上：静音总开关（M 键）会连音乐一起关掉
-    this.music = new Music(this.ctx, this.master);
+    this.music = new Music(this.ctx, this.musicBus);
 
     // 循环噪声经带通滤波变成轮胎摩擦声：只更新增益/音色，不在每帧新建音源。
     const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
@@ -91,7 +108,7 @@ class GameAudio {
     this.skidGain.gain.value = 0;
     noise.connect(this.skidFilter);
     this.skidFilter.connect(this.skidGain);
-    this.skidGain.connect(this.master);
+    this.skidGain.connect(this.sfxBus);
 
     // 同一份噪声再走一路高通：飞碟侧滑时是推进器的气流，不是轮胎尖叫
     this.windFilter = this.ctx.createBiquadFilter();
@@ -101,7 +118,7 @@ class GameAudio {
     this.windGain.gain.value = 0;
     noise.connect(this.windFilter);
     this.windFilter.connect(this.windGain);
-    this.windGain.connect(this.master);
+    this.windGain.connect(this.sfxBus);
 
     noise.start();
   }
@@ -157,7 +174,7 @@ class GameAudio {
     this.hoverVolume = ctx.createGain();
     this.hoverVolume.gain.value = 0;
     this.hoverTrem.connect(this.hoverVolume);
-    this.hoverVolume.connect(this.master);
+    this.hoverVolume.connect(this.sfxBus);
 
     this.hoverOscillator.start();
     this.hoverShimmer.start();
@@ -250,7 +267,7 @@ class GameAudio {
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
     oscillator.connect(gain);
-    gain.connect(this.master);
+    gain.connect(this.sfxBus);
     oscillator.start(now);
     oscillator.stop(now + duration + 0.02);
   }
@@ -259,6 +276,20 @@ class GameAudio {
   coin() {
     this.blip(880, 0.09, 'square', 0.12, 1320);
     setTimeout(() => this.blip(1320, 0.12, 'square', 0.1, 1760), 70);
+  }
+
+  /**
+   * 调节音乐 / 音效音量（0~1）。会存盘，下次 init() 时恢复。
+   * @param {'music'|'sfx'} kind
+   * @param {number} value
+   */
+  setVolume(kind, value) {
+    const key = kind === 'music' ? 'music' : 'sfx';
+    const v = Math.min(1, Math.max(0, Number(value) || 0));
+    this.volumes[key] = v;
+    const bus = key === 'music' ? this.musicBus : this.sfxBus;
+    if (bus) bus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
+    writeJson(VOLUME_KEY, this.volumes);
   }
 
   toggle() {

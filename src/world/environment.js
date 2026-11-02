@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { toon } from '../core/materials.js';
+import { createGrassTexture } from '../core/textures.js';
 
 /**
- * 场景装饰：草地、草丛色块、树木、远山、云。
- * 全部是"低多边形 + 纯色"的卡通做法，不含任何贴图。
+ * 场景装饰：草地、草丛、树木、远山、云。
+ * 低多边形 + 卡通色；草地用一张程序化贴图 + 实例化草簇，
+ * 地面不再是一整片死绿。
  *
  * 返回一个 { update(dt), rebuild(track, theme) }：
  * update 每帧推进云朵飘动，rebuild 用来换地图时按新主题把整个装饰重造一遍。
@@ -35,6 +37,7 @@ export function createEnvironment(scene, track, theme) {
       state.objects.push(...buildEmbers(scene, nextTheme, state.embers));
     } else {
       state.objects.push(...buildGround(scene, nextTheme));
+      state.objects.push(...buildGrassTufts(scene, nextTrack, nextTheme));
       state.objects.push(...buildTrees(scene, nextTrack, nextTheme));
       state.objects.push(...buildHills(scene, nextTheme));
       state.objects.push(...buildClouds(scene, nextTheme, state.clouds));
@@ -81,25 +84,81 @@ function clearObjects(scene, objects) {
 
 function buildGround(scene, theme) {
   const objects = [];
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), toon(theme.grass));
+  const texture = createGrassTexture(theme);
+  const geometry = new THREE.PlaneGeometry(4000, 4000, 96, 96);
+
+  // 顶点色：低频深浅。贴图负责近处的草叶，这里负责大尺度的明暗，
+  // 顺带把贴图的平铺重复感打散（否则俯视能看到一格一格的棋盘）。
+  const colors = [];
+  const color = new THREE.Color();
+  const shadeA = new THREE.Color(theme.grassShades[0]);
+  const shadeB = new THREE.Color(theme.grassShades[1]);
+  const pos = geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const n = Math.sin(x * 0.0065) * Math.cos(y * 0.0072)
+      + Math.sin((x + y) * 0.011) * 0.55
+      + Math.cos(x * 0.003 - y * 0.004) * 0.35;
+    const t = THREE.MathUtils.clamp(0.5 + n * 0.28, 0, 1);
+    color.copy(shadeA).lerp(shadeB, t);
+    colors.push(color.r, color.g, color.b);
+  }
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+  const ground = new THREE.Mesh(
+    geometry,
+    toon(0xffffff, { map: texture, vertexColors: true }),
+  );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
   objects.push(ground);
-
-  // 随机撒一些深浅不同的圆形色块，让大片草地不那么单调
-  const patchGeometry = new THREE.CircleGeometry(1, 12);
-  for (let i = 0; i < 26; i++) {
-    const patch = new THREE.Mesh(patchGeometry, toon(theme.grassShades[i % theme.grassShades.length]));
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 120 + Math.random() * 340;
-    patch.position.set(Math.cos(angle) * radius, 0.02, Math.sin(angle) * radius);
-    patch.rotation.x = -Math.PI / 2;
-    patch.scale.setScalar(25 + Math.random() * 60);
-    scene.add(patch);
-    objects.push(patch);
-  }
   return objects;
+}
+
+/**
+ * 草簇：沿赛道两侧撒一圈低矮的小草，给地面一点高度和层次。
+ * 用 InstancedMesh，1600 簇只花 1 次绘制调用。
+ */
+function buildGrassTufts(scene, track, theme) {
+  const count = 1600;
+  const geometry = new THREE.ConeGeometry(0.14, 0.62, 3);
+  geometry.translate(0, 0.31, 0);
+  const mesh = new THREE.InstancedMesh(geometry, toon(0xffffff), count);
+  mesh.receiveShadow = true;
+
+  const matrix = new THREE.Matrix4();
+  const quaternion = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  const color = new THREE.Color();
+  const scale = new THREE.Vector3();
+
+  for (let i = 0; i < count; i++) {
+    const t = Math.random();
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const offset = track.halfWidth + 2.5 + Math.random() * 10;
+    const p = track.pointAt(t);
+    const n = track.normalAt(t);
+
+    quaternion.setFromAxisAngle(up, Math.random() * Math.PI * 2);
+    const s = 0.45 + Math.random() * 0.7;
+    scale.set(s, s * (0.7 + Math.random() * 0.8), s);
+    matrix.compose(
+      new THREE.Vector3(p.x + n.x * offset * side, 0, p.z + n.z * offset * side),
+      quaternion,
+      scale,
+    );
+    mesh.setMatrixAt(i, matrix);
+
+    color.setHex(theme.grassShades[i % theme.grassShades.length])
+      .multiplyScalar(0.82)
+      .offsetHSL(0, 0, (Math.random() - 0.5) * 0.05);
+    mesh.setColorAt(i, color);
+  }
+
+  scene.add(mesh);
+  return [mesh];
 }
 
 /**
@@ -245,7 +304,7 @@ function buildHills(scene, theme) {
 function buildClouds(scene, theme, clouds) {
   const objects = [];
   const puffGeometry = new THREE.SphereGeometry(1, 8, 6);
-  const cloudMaterial = toon(theme.cloud);
+  const cloudMaterial = new THREE.MeshBasicMaterial({ color: theme.cloud });
 
   for (let i = 0; i < 12; i++) {
     const cloud = new THREE.Group();
@@ -350,7 +409,7 @@ function buildLavaRiver(track, theme, bridge) {
   const lavaMaterial = new THREE.MeshBasicMaterial({ color: theme.lava });
   const crustMaterial = toon(0x241b1f);
   /** 河的最大半宽（米） */
-  const halfMax = 37;
+  const halfMax = 24;
 
   const from = Math.floor((bridge.from - 0.01) * track.count);
   const to = Math.ceil((bridge.to + 0.01) * track.count);
@@ -369,7 +428,10 @@ function buildLavaRiver(track, theme, bridge) {
 
     for (let i = from; i <= to; i++) {
       const idx = ((i % track.count) + track.count) % track.count;
-      const deck = track.heightAt(idx / track.count) ?? 0;
+      const h = track.heightAt(idx / track.count);
+      // 【断口上方也要有河】heightAt 在断口返回 null，不能当成 0 ——
+      // 否则熔岩河恰好在断口处收窄成 0，掉下去看到的是黑地，不是岩浆。
+      const deck = h === null ? bridge.height : h;
       // 桥面低的时候收窄：熔岩从桥底下"长出来"，而不是铺在路面上
       const fade = THREE.MathUtils.clamp((deck - 0.8) / 2.2, 0, 1);
       const half = halfWidth * fade;
@@ -381,7 +443,7 @@ function buildLavaRiver(track, theme, bridge) {
       positions.push(p.x - n.x * half, y, p.z - n.z * half);
 
       if (connected) {
-        const a = vertex - 4, b = vertex - 3, c = vertex - 2, d = vertex - 1;
+        const a = vertex - 2, b = vertex - 1, c = vertex, d = vertex + 1;
         indices.push(a, b, c, b, d, c);
       }
       vertex += 2;
