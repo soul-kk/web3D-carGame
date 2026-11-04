@@ -4,7 +4,7 @@
 
 export const RACE = {
   /** 总圈数 */
-  laps: 3,
+  laps: 2,
   /** 起跑倒计时秒数（3 → 2 → 1 → GO） */
   countdown: 3.0,
 };
@@ -14,11 +14,9 @@ export const TRACK = {
   samples: 1200,
   /**
    * 路面宽度。
-   * 这个值直接决定漂移好不好玩：路太窄时，一甩尾就滑到草地上，
-   * 而草地最高速度只有 `CAR.offTrackSpeedFactor` 倍 —— 一次漂移就毁掉一圈。
-   * 15 → 20 之后，漂移才有"滑出去一点、还能拉回来"的余地。
+   * 路面加宽后，漂移时更容易保持在铺装路面上；各地图可单独覆盖此值。
    */
-  width: 20,
+  width: 40,
   /** 路肩宽度 */
   curbWidth: 1.7,
   /** 路面离地高度，避免和草地 Z-fighting */
@@ -80,11 +78,9 @@ export const CAR = {
   /** 侧向抓地力：越大越"粘"，越小越容易漂移 */
   gripOnTrack: 7,
   gripOffTrack: 2,
-  /**
-   * 草地最高速度系数。
-   */
-  offTrackSpeedFactor: 0.8,
-  offTrackDrag: 1.7,
+  /** 草地最高速度系数；草地仍会减速，但不会一下子拖慢赛车。 */
+  offTrackSpeedFactor: 0.9,
+  offTrackDrag: 0.5,
   onTrackDrag: 0.12,
   /** 加速带 */
   boostFactor: 1.5,
