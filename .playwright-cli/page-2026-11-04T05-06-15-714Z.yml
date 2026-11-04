@@ -1,0 +1,9 @@
+- dialog [ref=e24]:
+  - heading "玩法说明" [level=2] [ref=e25]
+  - generic [ref=e26]:
+    - paragraph [ref=e27]: W / ↑ 加速 · S / ↓ 刹车、倒车 · A D / ← → 转向
+    - paragraph [ref=e28]: 按住 Shift 漂移：氮气满 50% 松手短喷，满格松手长喷。
+    - paragraph [ref=e29]: 有效漂移持续加分；完成比赛会保存本地图的单场漂移最高总分。
+    - paragraph [ref=e30]: 收集金币、冲过加速带，跑完 2 圈！
+    - paragraph [ref=e31]: R 回到赛道 · M 开关音效 · ESC 暂停游戏
+  - button "返回主界面" [active] [ref=e32] [cursor=pointer]

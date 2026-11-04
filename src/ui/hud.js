@@ -5,11 +5,11 @@ const NITRO_HINT = {
   road: '回到路面才能充能',
   steer: '打方向甩尾才能充能',
   charging: '漂移蓄力 · Ⅰ',
-  half: '漂移蓄力 · Ⅱ',
-  ready: '蓄力完成！松开手刹',
+  half: '半格就绪 · 松开短喷 / 继续漂移满喷',
+  ready: '满格就绪！松开全力加速',
   fading: '继续漂移，蓄力正在消退',
   // 释放 / 加速中不再显示大字，只留蓝色边缘光和尾焰
-  burst: '',
+  burst: '氮气释放！',
   boosting: '',
 };
 
@@ -38,6 +38,10 @@ export class Hud {
       nitroFill: document.getElementById('nitro-fill'),
       nitroLabel: document.getElementById('nitro-label'),
       driftFx: document.getElementById('drift-fx'),
+      driftTotal: document.getElementById('hud-drift-total'),
+      driftBest: document.getElementById('hud-drift-best'),
+      driftScore: document.getElementById('drift-score'),
+      driftGain: document.getElementById('drift-gain'),
     };
 
     /** 中央大字提示的剩余显示时间 */
@@ -51,6 +55,11 @@ export class Hud {
     this.lastNitroState = null;
     this.burstTimer = 0;
     this.nitroBoostActive = false;
+    this.nitroBoostTier = 2;
+    this.lastDriftTotal = -1;
+    this.lastDriftBest = -1;
+    this.lastDriftGain = -1;
+    this.lastDriftActive = false;
   }
 
   show() { this.root.classList.remove('hidden'); }
@@ -86,6 +95,26 @@ export class Hud {
     }
   }
 
+  /** 实时更新本场累计；漂移中显示正在增长的这一段得分。 */
+  setDriftScore(total, gain, best, active) {
+    if (total !== this.lastDriftTotal) {
+      this.el.driftTotal.textContent = total.toLocaleString();
+      this.lastDriftTotal = total;
+    }
+    if (best !== this.lastDriftBest) {
+      this.el.driftBest.textContent = best > 0 ? best.toLocaleString() : '--';
+      this.lastDriftBest = best;
+    }
+    if (gain !== this.lastDriftGain) {
+      this.el.driftGain.textContent = `+${gain.toLocaleString()}`;
+      this.lastDriftGain = gain;
+    }
+    if (active !== this.lastDriftActive) {
+      this.el.driftScore.classList.toggle('active', active);
+      this.lastDriftActive = active;
+    }
+  }
+
   setSoundEnabled(enabled) {
     this.el.sound.textContent = enabled ? '开' : '关';
   }
@@ -111,33 +140,37 @@ export class Hud {
     if (this.burstTimer > 0) state = 'burst';
     else if (this.nitroBoostActive) state = 'boosting';
     else if (active && handbrake && charge >= 1) state = 'ready';
+    else if (active && handbrake && charge >= 0.5) state = 'half';
     else if (active && handbrake && !onTrack) state = 'road';
     else if (active && handbrake && slow) state = 'slow';
-    else if (active && handbrake && drifting) state = charge >= 0.5 ? 'half' : 'charging';
+    else if (active && handbrake && drifting) state = 'charging';
     else if (active && handbrake) state = 'steer';
     else if (active && charge > 0) state = 'fading';
     if (state === this.lastNitroState) return;
 
     this.lastNitroState = state;
-    this.el.nitro.className = state;
-    this.el.nitroLabel.textContent = state === 'idle' && 'ontouchstart' in window
-      ? '按住漂移键攒氮气'
-      : NITRO_HINT[state];
+    this.el.nitro.className = `${state}${this.nitroBoostActive && this.nitroBoostTier === 1 ? ' short' : ''}`;
+    let hint = NITRO_HINT[state];
+    if (state === 'idle' && 'ontouchstart' in window) hint = '按住漂移键攒氮气';
+    else if (state === 'burst' && this.nitroBoostTier === 1) hint = '短喷！';
+    this.el.nitroLabel.textContent = hint;
   }
 
   /** 蓝色边缘光/速度线持续到氮气结束；只在状态变化时操作 DOM。 */
-  setNitroBoost(active) {
-    if (active === this.nitroBoostActive) return;
+  setNitroBoost(active, tier = 2) {
+    if (active === this.nitroBoostActive && (!active || tier === this.nitroBoostTier)) return;
     this.nitroBoostActive = active;
+    this.nitroBoostTier = tier;
     this.el.driftFx.classList.toggle('active', active);
+    this.el.driftFx.classList.toggle('short', active && tier === 1);
     if (!active) this.el.driftFx.classList.remove('burst');
     this.lastNitroState = null;
   }
 
   /** 释放瞬间闪光和文字仍是短促的，持续特效交给 setNitroBoost。 */
-  burstNitro() {
+  burstNitro(tier = 2) {
     this.burstTimer = 0.46;
-    this.setNitroBoost(true);
+    this.setNitroBoost(true, tier);
     this.el.driftFx.classList.remove('burst');
     void this.el.driftFx.offsetWidth;
     this.el.driftFx.classList.add('burst');

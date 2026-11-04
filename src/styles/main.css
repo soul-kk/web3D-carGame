@@ -37,11 +37,36 @@ canvas { display: block; }
 }
 .row .label { opacity: .6; font-size: 13px; }
 #panel-left .row span:last-child { font-variant-numeric: tabular-nums; }
+#panel-left .row:nth-last-child(-n+2) span:last-child { color: #e25a32; font-weight: 900; }
+
+/* 漂移像一张弹出的得分牌：活跃时数字不断上涨，不抢倒计时的中心位。 */
+#drift-score {
+  position: absolute; left: 50%; bottom: 158px; transform: translateX(-50%) rotate(-3deg);
+  min-width: 126px; padding: 5px 14px 7px; text-align: center;
+  border: 3px solid #1b2430; border-radius: 12px;
+  background: #ffd166; box-shadow: 4px 4px 0 #1b2430;
+  opacity: 0; visibility: hidden;
+}
+#drift-score.active { opacity: 1; visibility: visible; }
+#drift-score span { display: block; font-size: 12px; font-weight: 900; letter-spacing: .08em; }
+#drift-score strong { display: block; font-size: 30px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { #drift-score { bottom: 162px; } }
 
 #minimap {
   display: block; margin-bottom: 6px;
   border-radius: 10px;
   background: rgba(255, 255, 255, .5);
+}
+
+@media (max-width: 600px) {
+  /* 顶部留给暂停键，分数面板和小地图在窄屏上分居两侧。 */
+  #panel-left, #panel-right { top: 64px; width: min(150px, calc(50vw - 17px)); min-width: 0; padding: 7px; }
+  #panel-left { left: 10px; }
+  #panel-right { right: 10px; }
+  #panel-left .row, #panel-right .row { gap: 4px; font-size: 12px; }
+  #panel-left .row .label, #panel-right .row .label { font-size: 11px; }
+  #minimap { width: 100%; height: auto; }
+  #btn-pause { top: 12px; }
 }
 
 #speedo {
@@ -102,6 +127,8 @@ canvas { display: block; }
   animation: nitro-pulse .4s infinite alternate;
 }
 #nitro.ready #nitro-bar { box-shadow: 0 0 0 4px rgba(25, 198, 255, .5), 4px 4px 0 #1b2430; }
+#nitro.half #nitro-bar { box-shadow: 0 0 0 3px rgba(255, 183, 3, .45), 4px 4px 0 #1b2430; }
+#nitro.short.burst #nitro-bar, #nitro.short.boosting #nitro-bar { box-shadow: 0 0 0 3px rgba(255, 209, 102, .75), 4px 4px 0 #1b2430; }
 #nitro.burst #nitro-label, #nitro.boosting #nitro-label { color: #8cfaff; }
 #nitro.burst #nitro-bar, #nitro.boosting #nitro-bar { box-shadow: 0 0 0 5px rgba(25, 198, 255, .6), 4px 4px 0 #1b2430; }
 @keyframes nitro-pulse { from { opacity: .6; } to { opacity: 1; } }
@@ -111,6 +138,8 @@ canvas { display: block; }
 #drift-fx.active { opacity: 1; }
 #drift-fx::before, #drift-fx::after { content: ''; position: absolute; inset: 0; }
 #drift-fx::before { box-shadow: inset 0 0 70px 12px rgba(57, 222, 255, .5); }
+#drift-fx.short::before { box-shadow: inset 0 0 55px 8px rgba(255, 209, 102, .45); }
+#drift-fx.short.burst::before { animation: drift-flash-short .46s ease-out; }
 #drift-fx.burst::before { animation: drift-flash .46s ease-out; }
 #drift-fx::after {
   background: repeating-conic-gradient(from 7deg at 50% 54%, transparent 0deg 18deg, rgba(126, 249, 255, .35) 20deg 21deg, transparent 22deg 30deg);
@@ -121,10 +150,15 @@ canvas { display: block; }
   0% { opacity: 1; box-shadow: inset 0 0 95px 25px rgba(57, 222, 255, .95); }
   100% { opacity: 1; box-shadow: inset 0 0 70px 12px rgba(57, 222, 255, .5); }
 }
+@keyframes drift-flash-short {
+  0% { box-shadow: inset 0 0 70px 16px rgba(255, 209, 102, .8); }
+  100% { box-shadow: inset 0 0 55px 8px rgba(255, 209, 102, .45); }
+}
 @keyframes drift-lines { from { transform: scale(.92); opacity: .15; } to { transform: scale(1.14); opacity: .65; } }
 @media (prefers-reduced-motion: reduce) {
   #nitro-fill { transition: none; }
-  #nitro.ready #nitro-fill, #drift-fx.active::after, #drift-fx.burst::before { animation: none; }
+  #nitro.ready #nitro-fill, #drift-fx.active::after, #drift-fx.burst::before,
+  #drift-fx.short.burst::before { animation: none; }
   #drift-fx.active { opacity: 0; }
 }
 
@@ -263,6 +297,7 @@ button:focus-visible, .card:focus-visible { outline: 3px solid #19c6ff; outline-
 #hud.slowmo .panel,
 #hud.slowmo #speedo,
 #hud.slowmo #nitro,
+#hud.slowmo #drift-score,
 #hud.slowmo #messages { z-index: 2; }
 @keyframes letterbox {
   from { height: 0; }

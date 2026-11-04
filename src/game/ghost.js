@@ -41,10 +41,11 @@ function bestKey(mapId) {
 /**
  * 记录格式版本。
  * v1 存的是"最佳单圈"，v2 改成"整场"（ghost 里从 lapTime 变成 totalTime），
- * v3 改为两圈并加宽路面，旧整场成绩和幽灵车不能再与新赛程比较。
+ * v3 改为两圈并加宽路面；v4 两张赛道重画成漂移弯并增加漂移总分，
+ * 原用时和幽灵不再可比，旧记录不迁移。
  * 把版本号 +1 之后，老数据会被 loadBest 直接忽略，而不是读出不匹配的幽灵车。
  */
-const RECORD_VERSION = 3;
+const RECORD_VERSION = 4;
 
 /** 采样频率。30Hz 够顺滑，数据量只有 60Hz 的一半 */
 export const GHOST_HZ = 30;
@@ -60,7 +61,7 @@ const HEADING_SCALE = 1000;
 
 /**
  * 读取历史最佳。
- * 结构：{ version, bestLapTime, bestTotalTime, ghost: { hz, totalTime, data } }
+ * 结构：{ version, bestLapTime, bestTotalTime, bestDriftScore, ghost: { hz, totalTime, data } }
  * @param {string} [mapId] 地图 id，不传就读旧版（无后缀）的存档
  * @returns {object|null} 没有存档 / 格式不对时返回 null
  */

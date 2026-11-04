@@ -484,8 +484,10 @@ export class Car {
     this.heading = 0;
     /** 当前方向盘角度，-1 左 1 右 */
     this.steer = 0;
-    /** 剩余氮气时间（秒） */
+    /** 剩余加速时间及本次加速倍率；加速带仍使用 CAR 默认倍率 */
     this.boost = 0;
+    this.boostSpeedFactor = CAR.boostFactor;
+    this.boostAccelFactor = CAR.boostAccelFactor;
     /** 车轮累计转动角度 */
     this.wheelSpin = 0;
     /** 是否在赛道上（由外部根据赛道距离判定后传进来） */
@@ -496,7 +498,7 @@ export class Car {
     this.handbrake = false;
     /** 这一帧是否算"正在漂移"（手刹 + 在赛道上 + 真的在侧滑） */
     this.drifting = false;
-    /** 氮气充能 0~1：漂移时上涨，满格后松开手刹自动喷 */
+    /** 氮气充能 0~1：漂移时上涨，半格/满格松手喷不同档位 */
     this.driftCharge = 0;
   }
 
@@ -520,6 +522,8 @@ export class Car {
     this.velocity.set(0, 0);
     this.steer = 0;
     this.boost = 0;
+    this.boostSpeedFactor = CAR.boostFactor;
+    this.boostAccelFactor = CAR.boostAccelFactor;
     this.nearestIndex = nearestIndex;
     this.handbrake = false;
     this.drifting = false;
@@ -531,8 +535,10 @@ export class Car {
     this.#updateVisuals(0, 0, 0, { throttle: 0, brake: 0, steer: 0 }, true);
   }
 
-  applyBoost(seconds = CAR.boostDuration) {
+  applyBoost(seconds = CAR.boostDuration, speedFactor = CAR.boostFactor, accelFactor = CAR.boostAccelFactor) {
     this.boost = seconds;
+    this.boostSpeedFactor = speedFactor;
+    this.boostAccelFactor = accelFactor;
   }
 
   /**
@@ -572,7 +578,7 @@ export class Car {
    * @param {boolean} ctx.onTrack 是否在铺装路面上
    * @param {{y:number|null, slope:number}} ctx.surface 脚下的路面高度与坡度（y=null 表示没有地面）
    * @returns {{forwardSpeed:number, lateralSpeed:number, speed:number,
-   *            drifting:boolean, driftCharge:number, nitroFired:boolean}}
+   *            drifting:boolean, driftCharge:number, nitroFired:boolean, nitroTier:number}}
    */
   update(dt, { input, canDrive, onTrack, surface }) {
     this.onTrack = onTrack;
@@ -605,10 +611,13 @@ export class Car {
 
     // 3. 油门 / 刹车 / 倒车
     const maxSpeed = (onTrack ? CAR.maxSpeed : CAR.maxSpeed * CAR.offTrackSpeedFactor)
-      * (boosting ? CAR.boostFactor : 1);
+      * (boosting ? this.boostSpeedFactor : 1);
 
     if (canDrive && input.throttle) {
-      vf += CAR.accel * (boosting ? CAR.boostAccelFactor : 1) * dt;
+      // 真正产生侧滑后才给少量油门补偿；直线一直按手刹无法白嫖加速。
+      const driftGain = !boosting && handbrake && onTrack && vf > NITRO.driftMinSpeed
+        && Math.abs(vr) >= NITRO.driftMinLateral ? CAR.driftAccelFactor : 1;
+      vf += CAR.accel * (boosting ? this.boostAccelFactor : driftGain) * dt;
     } else if (canDrive && input.brake) {
       vf -= (vf > 0.6 ? CAR.brake : CAR.reverseAccel) * dt;
     } else {
@@ -633,7 +642,7 @@ export class Car {
     this.position.z += this.velocity.y * dt;
 
     // 6. 漂移充能
-    const nitroFired = this.#updateDrift(dt, { canDrive, handbrake, wasHandbrake, vf, vr, onTrack });
+    const nitroTier = this.#updateDrift(dt, { canDrive, handbrake, wasHandbrake, vf, vr, onTrack });
 
     // 7. 竖直方向（断桥飞跃）
     this.#updateVertical(dt, surface ?? { y: 0, slope: 0 }, vf);
@@ -646,7 +655,8 @@ export class Car {
       speed: this.velocity.length(),
       drifting: this.drifting,
       driftCharge: this.driftCharge,
-      nitroFired,
+      nitroFired: nitroTier > 0,
+      nitroTier,
     };
   }
 
@@ -701,13 +711,16 @@ export class Car {
    * 如果反过来（先衰减再判满格），松手那一帧充能已经从 1 掉到 0.99，
    * 永远达不到 1，氮气就永远放不出来 —— 这个 bug 是被自动测试跑出来的。
    *
-   * @returns {boolean} 这一帧是否喷出了氮气
+   * @returns {number} 这一帧释放的档位（0 / 1 短喷 / 2 满喷）
    */
   #updateDrift(dt, { canDrive, handbrake, wasHandbrake, vf, vr, onTrack }) {
-    const released = canDrive && wasHandbrake && !handbrake && this.driftCharge >= 1;
-    if (released) {
+    const charge = this.driftCharge; // 松手边沿先读，避免衰减导致 50% 或满格误判
+    let tier = 0;
+    if (canDrive && wasHandbrake && !handbrake && charge >= NITRO.shortThreshold) {
+      tier = charge >= 1 ? 2 : 1;
       this.driftCharge = 0;
-      this.applyBoost(NITRO.boostDuration);
+      if (tier === 2) this.applyBoost(NITRO.boostDuration);
+      else this.applyBoost(NITRO.shortBoostDuration, NITRO.shortBoostFactor, NITRO.shortBoostAccelFactor);
     }
 
     this.drifting = handbrake
@@ -721,7 +734,7 @@ export class Car {
       this.driftCharge = Math.max(0, this.driftCharge - NITRO.decayRate * dt);
     }
 
-    return released;
+    return tier;
   }
 
   /* ================= 外观 ================= */

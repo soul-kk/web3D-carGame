@@ -190,7 +190,8 @@ export class Overlay {
     body.className = 'instructions';
     const lines = [
       'W / ↑ 加速 · S / ↓ 刹车、倒车 · A D / ← → 转向',
-      '按住 Shift 甩尾漂移，攒满氮气后松开手刹即可加速。',
+      '按住 Shift 漂移：氮气满 50% 松手短喷，满格松手长喷。',
+      '有效漂移持续加分；完成比赛会保存本地图的单场漂移最高总分。',
       `收集金币、冲过加速带，跑完 ${RACE.laps} 圈！`,
       'R 回到赛道 · M 开关音效 · ESC 暂停游戏',
     ];
@@ -299,16 +300,18 @@ export class Overlay {
     }
     const lap = record.bestLapTime ? `${record.bestLapTime.toFixed(2)}s` : '--';
     const total = record.bestTotalTime ? `${record.bestTotalTime.toFixed(2)}s` : '--';
-    this.recordLine.textContent = `历史最佳 · 单圈 ${lap} · 总用时 ${total}`;
+    const drift = record.bestDriftScore ? `${record.bestDriftScore.toLocaleString()}分` : '--';
+    this.recordLine.textContent = `历史最佳 · 单圈 ${lap} · 总用时 ${total} · 漂移 ${drift}`;
   }
 
-  showFinish({ totalTime, bestLap, coins, previousBestTotal = null, isNewRecord = false }) {
+  showFinish({ totalTime, bestLap, coins, driftScore, previousBestTotal = null, isNewRecord = false, isNewDriftRecord = false }) {
     const stats = document.createElement('div');
     stats.className = 'stats';
     for (const [value, label] of [
       [totalTime.toFixed(2), '总用时'],
       [bestLap === null ? '--' : bestLap.toFixed(2), '最佳单圈'],
       [String(coins), '金币'],
+      [driftScore.toLocaleString(), '本场漂移总分'],
     ]) {
       const box = document.createElement('div');
       const number = document.createElement('b');
@@ -319,8 +322,11 @@ export class Overlay {
       stats.append(box);
     }
     const note = document.createElement('p');
-    note.className = isNewRecord ? 'record' : 'dim';
-    note.textContent = isNewRecord ? '🎉 新 纪 录 ！' : `历史最佳总用时 ${previousBestTotal?.toFixed(2) ?? '--'}`;
+    note.className = isNewRecord || isNewDriftRecord ? 'record' : 'dim';
+    if (isNewRecord && isNewDriftRecord) note.textContent = '🎉 用时与漂移双纪录！';
+    else if (isNewDriftRecord) note.textContent = '🎉 漂移分数新纪录！';
+    else if (isNewRecord) note.textContent = '🎉 用时新纪录！';
+    else note.textContent = `历史最佳总用时 ${previousBestTotal?.toFixed(2) ?? '--'}`;
     this.#dialog('🏁 完 赛 !', [
       stats, note,
       this.skinList,

@@ -53,6 +53,9 @@ export class Game {
     this.skidmarks = new Skidmarks(scene);
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     this.chargeTier = 0;
+    /** 当前连续有效漂移得分（本场累计保存在 Race） */
+    this.driftStreak = 0;
+    this.driftScoring = false;
 
     /* ---------- 赛车 & 相机 ---------- */
     this.car = new Car({ skinId: this.skinId });
@@ -88,6 +91,7 @@ export class Game {
     this.boostTimer = 0;
     /** 仅手刹释放的氮气时长；加速带不会打开屏幕特效。 */
     this.nitroFxRemaining = 0;
+    this.nitroTier = 2;
 
     this.phase = 'menu';
     this.transition = null;
@@ -350,7 +354,7 @@ export class Game {
     });
 
     /* ---------- 4. 断桥：坠落重生 & 落地特效 ---------- */
-    this.#updateBridgeState(nearest.index, surface, step);
+    this.#updateBridgeState(nearest.index, surface);
 
     /* ---------- 5. 和道具交互 ---------- */
     this.#handleBoostPads();
@@ -368,6 +372,7 @@ export class Game {
     const wrongWay = this.race.isRacing
       && (nearest.tangent.x * forward.x + nearest.tangent.z * forward.z) < -0.35
       && carState.speed > 4;
+    this.#updateDriftScore(step, carState, nearest, wrongWay);
 
     /* ---------- 8. 计时与圈数 ---------- */
     this.race.update(step, { progress, wrongWay });
@@ -408,9 +413,8 @@ export class Game {
    * 断桥相关：接近提示、落地特效、坠落重生。
    * @param {number} index 当前所在的赛道采样点下标
    * @param {{y:number|null, slope:number}} surface 脚下的路面
-   * @param {number} step 这一帧的游戏时间（已含子弹时间倍率）
    */
-  #updateBridgeState(index, surface, step) {
+  #updateBridgeState(index, surface) {
     const car = this.car;
 
     // 落地：溅起尘土 + 镜头抖一下，让"落"这个动作有分量
@@ -490,6 +494,7 @@ export class Game {
       this.overlay.setBest(null);
       this.race.bestLap = null;
       this.hud.setTimes({ current: 0, best: null, total: 0 });
+      this.hud.setDriftScore(Math.floor(this.race.driftScore), 0, 0, false);
       audio.blip(300, 0.12, 'triangle', 0.1, 180);
     };
   }
@@ -504,7 +509,10 @@ export class Game {
     this.dustTimer = 0;
     this.boostTimer = 0;
     this.nitroFxRemaining = 0;
+    this.nitroTier = 2;
     this.chargeTier = 0;
+    this.driftStreak = 0;
+    this.driftScoring = false;
     this.timeScale = 1;
     this.cinematic = 0;
     // 断桥提示和落脚点都是"这一局的事"：换局要重置，
@@ -536,6 +544,7 @@ export class Game {
     this.hud.setCoins(0);
     this.hud.setWrongWay(false);
     this.hud.setNitro(0, { active: false });
+    this.hud.setDriftScore(0, 0, this.bestRecord?.bestDriftScore ?? 0, false);
     this.hud.clearMessage();
   }
 
@@ -612,11 +621,12 @@ export class Game {
     const charge = carState.driftCharge;
     if (carState.nitroFired) {
       this.nitroFxRemaining = this.car.boost;
+      this.nitroTier = carState.nitroTier;
       this.chargeTier = 0;
-      audio.blip(240, 0.42, 'sawtooth', 0.13, 1500);
+      audio.blip(240, this.nitroTier === 2 ? 0.42 : 0.22, 'sawtooth', 0.13, 1500);
       this.cameraRig.addBoostKick();
-      this.hud.burstNitro();
-      this.#vibrate([30, 20, 45]);
+      this.hud.burstNitro(this.nitroTier);
+      this.#vibrate(this.nitroTier === 2 ? [30, 20, 45] : 18);
     } else if (carState.drifting) {
       let tier = 0;
       if (charge >= 1) tier = 2;
@@ -633,7 +643,7 @@ export class Game {
     // 跟随氮气加速时长，而非释放动画的固定 .46 秒；加速带不延长氮气特效。
     if (!carState.nitroFired) this.nitroFxRemaining = Math.max(0, this.nitroFxRemaining - dt);
     if (this.car.boost <= 0 || !this.race.canDrive) this.nitroFxRemaining = 0;
-    this.hud.setNitroBoost(this.nitroFxRemaining > 0);
+    this.hud.setNitroBoost(this.nitroFxRemaining > 0, this.nitroTier);
 
     // 加速期间（氮气或加速带）持续冒尾焰
     if (this.car.boost <= 0) return;
@@ -648,6 +658,25 @@ export class Game {
       this.car.position.z - forward.z * 2.3,
       COLORS.nitro,
     );
+  }
+
+  /** 只认路面上的正向侧滑；原地转圈、逆行、坠落及重生均不计分。 */
+  #updateDriftScore(dt, state, nearest, wrongWay) {
+    const forwardProgress = nearest.tangent.x * this.car.velocity.x
+      + nearest.tangent.z * this.car.velocity.y;
+    const active = this.race.isRacing && this.car.drifting && state.drifting
+      && this.car.onTrack && !this.car.airborne && !wrongWay
+      && state.forwardSpeed > NITRO.driftMinSpeed && forwardProgress > 4;
+    this.driftScoring = active;
+    if (!active) {
+      this.driftStreak = 0;
+      return;
+    }
+    const speedWeight = Math.min(1.5, state.speed / CAR.maxSpeed);
+    const slideWeight = 1 + Math.min(0.8, Math.abs(state.lateralSpeed) / 20);
+    const points = 30 * speedWeight * slideWeight * dt;
+    this.driftStreak += points;
+    this.race.addDrift(points);
   }
 
   /** 触屏可选振动；系统要求减少动态效果时不触发。 */
@@ -700,7 +729,10 @@ export class Game {
     // 和历史最佳比总用时。注意用开跑前的快照，不然会和本局刚刷新的单圈记录比
     const previousBestTotal = this.recordAtStart?.bestTotalTime ?? null;
     const isNewRecord = previousBestTotal === null || summary.totalTime < previousBestTotal;
+    const previousBestDriftScore = this.bestRecord?.bestDriftScore ?? 0;
+    const isNewDriftRecord = summary.driftScore > previousBestDriftScore;
     const patch = {};
+    if (isNewDriftRecord) patch.bestDriftScore = summary.driftScore;
     if (this.pendingBestLap !== null) patch.bestLapTime = this.pendingBestLap;
     if (isNewRecord) {
       // 整场幽灵从绿灯到终点线录制，只有完赛才写盘。
@@ -708,13 +740,17 @@ export class Game {
       patch.ghost = packGhost(this.recorder.data, summary.totalTime);
     }
     if (Object.keys(patch).length) this.bestRecord = mergeBest(patch, this.map.id);
+    this.overlay.setBest(this.bestRecord);
+    this.driftScoring = false;
+    this.driftStreak = 0;
+    this.hud.setDriftScore(summary.driftScore, 0, this.bestRecord?.bestDriftScore ?? 0, false);
     this.phase = 'finished';
     this.#setDrivingControls(false);
     audio.engine(0, 0, false);
     audio.drift(0, false);
     this.hud.clearMessage();
     this.hud.setWrongWay(false);
-    this.overlay.showFinish({ ...summary, previousBestTotal, isNewRecord });
+    this.overlay.showFinish({ ...summary, previousBestTotal, isNewRecord, previousBestDriftScore, isNewDriftRecord });
   }
 
   /** 按 R 键：把车放回最近的赛道中心点 */
@@ -754,6 +790,10 @@ export class Game {
     });
     this.hud.setSpeed(speed);
     this.hud.setWrongWay(wrongWay);
+    this.hud.setDriftScore(
+      Math.floor(this.race.driftScore), Math.floor(this.driftStreak),
+      this.bestRecord?.bestDriftScore ?? 0, this.driftScoring,
+    );
     this.hud.setNitro(this.car.driftCharge, {
       active: this.race.isRacing,
       handbrake: this.car.handbrake,

@@ -1,0 +1,26 @@
+- main "游戏主界面" [ref=e5]:
+  - generic [ref=e6]:
+    - text: TOON RACING · 01
+    - heading "卡通赛车" [level=1] [ref=e7]
+    - paragraph [ref=e8]: 驶入弯道，追逐更快的自己。
+  - navigation "主菜单" [ref=e9]:
+    - button "开始游戏 ↗" [ref=e10] [cursor=pointer]:
+      - text: 开始游戏
+      - generic [ref=e11]: ↗
+    - button "玩法说明 ?" [ref=e12] [cursor=pointer]:
+      - text: 玩法说明
+      - generic [ref=e13]: "?"
+    - button "更换皮肤 🏎️ 红色赛车" [ref=e14] [cursor=pointer]:
+      - text: 更换皮肤
+      - generic [ref=e15]: 🏎️ 红色赛车
+    - button "更换地图 🌤️ 晴日草原" [ref=e16] [cursor=pointer]:
+      - text: 更换地图
+      - generic [ref=e17]: 🌤️ 晴日草原
+    - button "设置 音量" [ref=e18] [cursor=pointer]:
+      - text: 设置
+      - generic [ref=e19]: 音量
+    - button "历史成绩 敬请期待" [disabled] [ref=e20]:
+      - text: 历史成绩
+      - generic [ref=e21]: 敬请期待
+  - paragraph [ref=e22]: 还没有记录：完成比赛，写下第一笔成绩。
+  - button "清除最佳记录" [ref=e23] [cursor=pointer]

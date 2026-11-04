@@ -35,6 +35,7 @@ export class Race {
     this.totalTime = 0;
     this.bestLap = null;
     this.coins = 0;
+    this.driftScore = 0;
     this.wrongWay = false;
     this.previousProgress = 0;
   }
@@ -44,6 +45,7 @@ export class Race {
   get canDrive() { return this.mode === 'racing'; }
 
   addCoin() { this.coins++; }
+  addDrift(points) { if (this.isRacing) this.driftScore += points; }
 
   /**
    * 每帧推进计时与圈数。
@@ -83,6 +85,7 @@ export class Race {
         totalTime: this.totalTime,
         bestLap: this.bestLap,
         coins: this.coins,
+        driftScore: Math.floor(this.driftScore),
       });
     }
   }
